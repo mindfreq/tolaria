@@ -4,8 +4,8 @@
  * Analyzes changes to ui-design.pen and generates implementation tasks for Claude Code
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs');
+import { execSync } from 'child_process';
+import fs from 'fs';
 
 function getDiff() {
   try {
