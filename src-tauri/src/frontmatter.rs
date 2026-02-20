@@ -93,79 +93,85 @@ fn line_is_key(line: &str, key: &str) -> bool {
     false
 }
 
+/// Format a key-value pair as one or more YAML lines.
+fn format_yaml_field(key: &str, value: &FrontmatterValue) -> Vec<String> {
+    let yaml_key = format_yaml_key(key);
+    let yaml_value = value.to_yaml_value();
+    if yaml_value.contains('\n') {
+        vec![format!("{}:", yaml_key), yaml_value]
+    } else {
+        vec![format!("{}: {}", yaml_key, yaml_value)]
+    }
+}
+
+/// Check if a line is a YAML list continuation (`  - ...`) rather than a new key.
+fn is_list_continuation(line: &str) -> bool {
+    line.starts_with("  - ") || line.starts_with("  -\t")
+}
+
+/// Split content into frontmatter body and the rest after the closing `---`.
+/// Returns `(fm_content, rest)` where `fm_content` is between the opening and closing `---`.
+fn split_frontmatter(content: &str) -> Result<(&str, &str), String> {
+    let fm_end = content[4..].find("\n---")
+        .map(|i| i + 4)
+        .ok_or_else(|| "Malformed frontmatter: no closing ---".to_string())?;
+    Ok((&content[4..fm_end], &content[fm_end + 4..]))
+}
+
+/// Wrap content in a new frontmatter block containing a single field.
+fn prepend_new_frontmatter(content: &str, key: &str, value: &FrontmatterValue) -> String {
+    let field_lines = format_yaml_field(key, value);
+    format!("---\n{}\n---\n{}", field_lines.join("\n"), content)
+}
+
+/// Apply a field update to existing frontmatter lines.
+/// Replaces the matching key (and its list continuations) with the new value,
+/// or appends if the key is not found. If `value` is None, removes the key.
+fn apply_field_update(lines: &[&str], key: &str, value: Option<&FrontmatterValue>) -> Vec<String> {
+    let mut new_lines: Vec<String> = Vec::new();
+    let mut found_key = false;
+    let mut i = 0;
+
+    while i < lines.len() {
+        if !line_is_key(lines[i], key) {
+            new_lines.push(lines[i].to_string());
+            i += 1;
+            continue;
+        }
+
+        found_key = true;
+        i += 1;
+        // Skip list continuation lines belonging to this key
+        while i < lines.len() && is_list_continuation(lines[i]) {
+            i += 1;
+        }
+        // Insert replacement value (if any)
+        if let Some(v) = value {
+            new_lines.extend(format_yaml_field(key, v));
+        }
+    }
+
+    if !found_key {
+        if let Some(v) = value {
+            new_lines.extend(format_yaml_field(key, v));
+        }
+    }
+
+    new_lines
+}
+
 /// Internal function to update frontmatter content
 pub fn update_frontmatter_content(content: &str, key: &str, value: Option<FrontmatterValue>) -> Result<String, String> {
     if !content.starts_with("---\n") {
         return match value {
-            Some(v) => {
-                let yaml_key = format_yaml_key(key);
-                let yaml_value = v.to_yaml_value();
-                let fm = if yaml_value.contains('\n') {
-                    format!("---\n{}:\n{}\n---\n", yaml_key, yaml_value)
-                } else {
-                    format!("---\n{}: {}\n---\n", yaml_key, yaml_value)
-                };
-                Ok(format!("{}{}", fm, content))
-            }
+            Some(v) => Ok(prepend_new_frontmatter(content, key, &v)),
             None => Ok(content.to_string()),
         };
     }
-    
-    let fm_end = content[4..].find("\n---")
-        .map(|i| i + 4)
-        .ok_or_else(|| "Malformed frontmatter: no closing ---".to_string())?;
-    
-    let fm_content = &content[4..fm_end];
-    let rest = &content[fm_end + 4..];
-    
+
+    let (fm_content, rest) = split_frontmatter(content)?;
     let lines: Vec<&str> = fm_content.lines().collect();
-    let mut new_lines: Vec<String> = Vec::new();
-    let mut found_key = false;
-    let mut i = 0;
-    
-    while i < lines.len() {
-        let line = lines[i];
-        
-        if line_is_key(line, key) {
-            found_key = true;
-            i += 1;
-            while i < lines.len() && (lines[i].starts_with("  - ") || lines[i].trim().is_empty()) {
-                if lines[i].trim().is_empty() {
-                    break;
-                }
-                i += 1;
-            }
-            
-            if let Some(ref v) = value {
-                let yaml_key = format_yaml_key(key);
-                let yaml_value = v.to_yaml_value();
-                if yaml_value.contains('\n') {
-                    new_lines.push(format!("{}:", yaml_key));
-                    new_lines.push(yaml_value);
-                } else {
-                    new_lines.push(format!("{}: {}", yaml_key, yaml_value));
-                }
-            }
-            continue;
-        }
-        
-        new_lines.push(line.to_string());
-        i += 1;
-    }
-    
-    if !found_key {
-        if let Some(ref v) = value {
-            let yaml_key = format_yaml_key(key);
-            let yaml_value = v.to_yaml_value();
-            if yaml_value.contains('\n') {
-                new_lines.push(format!("{}:", yaml_key));
-                new_lines.push(yaml_value);
-            } else {
-                new_lines.push(format!("{}: {}", yaml_key, yaml_value));
-            }
-        }
-    }
-    
+    let new_lines = apply_field_update(&lines, key, value.as_ref());
     let new_fm = new_lines.join("\n");
     Ok(format!("---\n{}\n---{}", new_fm, rest))
 }
