@@ -102,6 +102,16 @@ function App() {
     setToastMessage(`Type "${name}" created`)
   }, [notes, setToastMessage])
 
+  const handleCustomizeType = useCallback((typeName: string, icon: string, color: string) => {
+    const typeEntry = vault.entries.find((e) => e.isA === 'Type' && e.title === typeName)
+    if (!typeEntry) return
+    // Update icon and color in frontmatter (two separate calls)
+    notes.handleUpdateFrontmatter(typeEntry.path, 'icon', icon)
+    notes.handleUpdateFrontmatter(typeEntry.path, 'color', color)
+    // Also update the entry in-memory for instant UI feedback
+    vault.updateEntry(typeEntry.path, { icon, color })
+  }, [vault, notes])
+
   useAppKeyboard({
     onQuickOpen: () => setShowQuickOpen(true),
     onCreateNote: openCreateDialog,
@@ -151,7 +161,7 @@ function App() {
     <div className="app-shell">
       <div className="app">
         <div className="app__sidebar" style={{ width: sidebarWidth }}>
-          <Sidebar entries={vault.entries} selection={selection} onSelect={setSelection} onSelectNote={notes.handleSelectNote} onCreateType={openCreateDialog} onCreateNewType={openCreateTypeDialog} modifiedCount={vault.modifiedFiles.length} onCommitPush={() => setShowCommitDialog(true)} />
+          <Sidebar entries={vault.entries} selection={selection} onSelect={setSelection} onSelectNote={notes.handleSelectNote} onCreateType={openCreateDialog} onCreateNewType={openCreateTypeDialog} onCustomizeType={handleCustomizeType} modifiedCount={vault.modifiedFiles.length} onCommitPush={() => setShowCommitDialog(true)} />
         </div>
         <ResizeHandle onResize={handleSidebarResize} />
         <div className="app__note-list" style={{ width: noteListWidth }}>

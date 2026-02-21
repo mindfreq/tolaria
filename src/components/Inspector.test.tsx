@@ -19,6 +19,8 @@ const mockEntry: VaultEntry = {
   fileSize: 1024,
   snippet: '',
   relationships: {},
+  icon: null,
+  color: null,
 }
 
 const mockContent = `---
@@ -54,6 +56,8 @@ const referrerEntry: VaultEntry = {
   fileSize: 200,
   snippet: '',
   relationships: {},
+  icon: null,
+  color: null,
 }
 
 const allContent: Record<string, string> = {

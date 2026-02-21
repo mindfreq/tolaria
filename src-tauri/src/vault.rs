@@ -34,6 +34,10 @@ pub struct VaultEntry {
     /// Generic relationship fields: any frontmatter key whose value contains wikilinks.
     /// Key is the original frontmatter field name (e.g. "Has", "Topics", "Events").
     pub relationships: HashMap<String, Vec<String>>,
+    /// Phosphor icon name (kebab-case) for Type entries, e.g. "cooking-pot".
+    pub icon: Option<String>,
+    /// Accent color key for Type entries: "red", "purple", "blue", "green", "yellow", "orange".
+    pub color: Option<String>,
 }
 
 /// Intermediate struct to capture YAML frontmatter fields.
@@ -57,6 +61,10 @@ struct Frontmatter {
     created_at: Option<String>,
     #[serde(rename = "Created time")]
     created_time: Option<String>,
+    #[serde(default)]
+    icon: Option<String>,
+    #[serde(default)]
+    color: Option<String>,
 }
 
 /// Handles YAML fields that can be either a single string or a list of strings.
@@ -203,6 +211,7 @@ fn parse_frontmatter(data: &HashMap<String, serde_json::Value>) -> Frontmatter {
 /// Only skip keys that can never contain wikilinks.
 const SKIP_KEYS: &[&str] = &[
     "is a", "aliases", "status", "cadence", "created at", "created time",
+    "icon", "color",
 ];
 
 /// Check if a string contains a wikilink pattern `[[...]]`.
@@ -352,6 +361,8 @@ pub fn parse_md_file(path: &Path) -> Result<VaultEntry, String> {
         owner: frontmatter.owner,
         cadence: frontmatter.cadence,
         modified_at, created_at, file_size,
+        icon: frontmatter.icon,
+        color: frontmatter.color,
     })
 }
 

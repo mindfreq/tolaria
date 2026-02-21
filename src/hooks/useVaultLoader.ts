@@ -67,6 +67,10 @@ export function useVaultLoader(vaultPath: string) {
     setAllContent((prev) => ({ ...prev, [path]: content }))
   }, [])
 
+  const updateEntry = useCallback((path: string, patch: Partial<VaultEntry>) => {
+    setEntries((prev) => prev.map((e) => e.path === path ? { ...e, ...patch } : e))
+  }, [])
+
   const loadGitHistory = useCallback(async (path: string): Promise<GitCommit[]> => {
     try {
       if (isTauri()) {
@@ -113,6 +117,7 @@ export function useVaultLoader(vaultPath: string) {
     allContent,
     modifiedFiles,
     addEntry,
+    updateEntry,
     updateContent,
     loadModifiedFiles,
     loadGitHistory,

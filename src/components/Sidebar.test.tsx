@@ -20,6 +20,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 1024,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/responsibility/grow-newsletter.md',
@@ -37,6 +39,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 512,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/experiment/stock-screener.md',
@@ -54,6 +58,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 256,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/procedure/weekly-essays.md',
@@ -71,6 +77,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 128,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/topic/software-development.md',
@@ -88,6 +96,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 256,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/topic/trading.md',
@@ -105,6 +115,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 180,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/person/alice.md',
@@ -122,6 +134,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 100,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
   {
     path: '/vault/event/kickoff.md',
@@ -139,6 +153,8 @@ const mockEntries: VaultEntry[] = [
     fileSize: 200,
     snippet: '',
     relationships: {},
+    icon: null,
+    color: null,
   },
 ]
 
@@ -283,6 +299,8 @@ describe('Sidebar', () => {
         fileSize: 200,
         snippet: '',
         relationships: {},
+    icon: null,
+    color: null,
       },
       {
         path: '/vault/type/book.md',
@@ -300,6 +318,8 @@ describe('Sidebar', () => {
         fileSize: 200,
         snippet: '',
         relationships: {},
+    icon: null,
+    color: null,
       },
       {
         path: '/vault/recipe/pasta.md',
@@ -317,6 +337,8 @@ describe('Sidebar', () => {
         fileSize: 300,
         snippet: '',
         relationships: {},
+    icon: null,
+    color: null,
       },
     ]
 
@@ -362,6 +384,8 @@ describe('Sidebar', () => {
         fileSize: 200,
         snippet: '',
         relationships: {},
+    icon: null,
+    color: null,
       }
       render(<Sidebar entries={[...mockEntries, projectTypeEntry]} selection={defaultSelection} onSelect={() => {}} />)
       // "Projects" should appear once (the built-in section), not twice

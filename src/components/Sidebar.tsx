@@ -1,8 +1,9 @@
-import { useState, useMemo, memo, type ComponentType } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, memo, type ComponentType } from 'react'
 import type { VaultEntry, SidebarSelection } from '../types'
 import { cn } from '@/lib/utils'
 import { ChevronRight, ChevronDown, GitCommitHorizontal, Plus } from 'lucide-react'
 import { getTypeColor, getTypeLightColor } from '../utils/typeColors'
+import { resolveIcon, TypeCustomizePopover } from './TypeCustomizePopover'
 import {
   FileText,
   Star,
@@ -26,6 +27,7 @@ interface SidebarProps {
   onSelectNote?: (entry: VaultEntry) => void
   onCreateType?: (type: string) => void
   onCreateNewType?: () => void
+  onCustomizeType?: (typeName: string, icon: string, color: string) => void
   modifiedCount?: number
   onCommitPush?: () => void
 }
@@ -39,6 +41,7 @@ interface SectionGroup {
   label: string
   type: string
   Icon: ComponentType<IconProps>
+  customColor?: string | null
 }
 
 const BUILT_IN_SECTION_GROUPS: SectionGroup[] = [
@@ -54,13 +57,26 @@ const BUILT_IN_SECTION_GROUPS: SectionGroup[] = [
 
 const BUILT_IN_TYPES = new Set(BUILT_IN_SECTION_GROUPS.map((s) => s.type))
 
-export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onSelectNote, onCreateType, onCreateNewType, modifiedCount = 0, onCommitPush }: SidebarProps) {
+export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onSelectNote, onCreateType, onCreateNewType, onCustomizeType, modifiedCount = 0, onCommitPush }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [customizeTarget, setCustomizeTarget] = useState<string | null>(null)
+  const [contextMenuPos, setContextMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const [contextMenuType, setContextMenuType] = useState<string | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+
   const toggleSection = (type: string) => {
     setCollapsed((prev) => ({ ...prev, [type]: !prev[type] }))
   }
 
-  const getSectionColor = (entry: VaultEntry) => getTypeColor(entry.isA ?? 'Note')
+  // Build a map of type name → type entry for quick lookup of icon/color
+  const typeEntryMap = useMemo(() => {
+    const map: Record<string, VaultEntry> = {}
+    for (const e of entries) {
+      if (e.isA === 'Type') map[e.title] = e
+    }
+    return map
+  }, [entries])
 
   const isActive = (sel: SidebarSelection): boolean => {
     if (selection.kind !== sel.kind) return false
@@ -79,20 +95,90 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
       .map((e) => ({
         label: e.title + 's',
         type: e.title,
-        Icon: FileText,
+        Icon: resolveIcon(e.icon),
+        customColor: e.color,
       }))
   }, [entries])
 
+  // For built-in types, check if they have custom icon/color overrides from their type entry
+  const builtInWithOverrides: SectionGroup[] = useMemo(() => {
+    return BUILT_IN_SECTION_GROUPS.map((sg) => {
+      const typeEntry = typeEntryMap[sg.type]
+      if (!typeEntry?.icon && !typeEntry?.color) return sg
+      return {
+        ...sg,
+        Icon: typeEntry?.icon ? resolveIcon(typeEntry.icon) : sg.Icon,
+        customColor: typeEntry?.color ?? null,
+      }
+    })
+  }, [typeEntryMap])
+
   const allSectionGroups = useMemo(
-    () => [...BUILT_IN_SECTION_GROUPS, ...customSectionGroups],
-    [customSectionGroups],
+    () => [...builtInWithOverrides, ...customSectionGroups],
+    [builtInWithOverrides, customSectionGroups],
   )
 
-  const renderSection = ({ label, type, Icon }: SectionGroup) => {
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenuPos) return
+    const handler = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenuPos(null)
+        setContextMenuType(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [contextMenuPos])
+
+  // Close customize popover on outside click
+  useEffect(() => {
+    if (!customizeTarget) return
+    const handler = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setCustomizeTarget(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [customizeTarget])
+
+  const handleContextMenu = useCallback((e: React.MouseEvent, type: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenuPos({ x: e.clientX, y: e.clientY })
+    setContextMenuType(type)
+  }, [])
+
+  const openCustomizePopover = useCallback((type: string) => {
+    setContextMenuPos(null)
+    setContextMenuType(null)
+    setCustomizeTarget(type)
+  }, [])
+
+  const handleCustomizeIcon = useCallback((icon: string) => {
+    if (!customizeTarget) return
+    const typeEntry = typeEntryMap[customizeTarget]
+    if (typeEntry && onCustomizeType) {
+      onCustomizeType(customizeTarget, icon, typeEntry.color ?? 'blue')
+    }
+  }, [customizeTarget, typeEntryMap, onCustomizeType])
+
+  const handleCustomizeColor = useCallback((color: string) => {
+    if (!customizeTarget) return
+    const typeEntry = typeEntryMap[customizeTarget]
+    if (typeEntry && onCustomizeType) {
+      onCustomizeType(customizeTarget, typeEntry.icon ?? 'file-text', color)
+    }
+  }, [customizeTarget, typeEntryMap, onCustomizeType])
+
+  const renderSection = ({ label, type, Icon, customColor }: SectionGroup) => {
     const items = entries.filter((e) => e.isA === type)
     const isCollapsed = collapsed[type] ?? false
     const isTopic = type === 'Topic'
     const isTypeSection = type === 'Type'
+    const sectionColor = getTypeColor(type, customColor)
+    const sectionLightColor = getTypeLightColor(type, customColor)
 
     const handlePlusClick = (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -115,9 +201,10 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
           )}
           style={{ padding: '6px 16px', borderRadius: 4, gap: 8 }}
           onClick={() => onSelect({ kind: 'sectionGroup', type })}
+          onContextMenu={(e) => handleContextMenu(e, type)}
         >
           <div className="flex items-center" style={{ gap: 8 }}>
-            <Icon size={16} style={{ color: getTypeColor(type) }} />
+            <Icon size={16} style={{ color: sectionColor }} />
             <span className="text-[13px] font-medium text-foreground">{label}</span>
           </div>
           <div className="flex items-center" style={{ gap: 2 }}>
@@ -160,8 +247,8 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
                 style={{
                   padding: '4px 16px 4px 28px',
                   ...(isActive(isTopic ? { kind: 'topic', entry } : { kind: 'entity', entry }) && {
-                    backgroundColor: getTypeLightColor(entry.isA ?? ''),
-                    color: getSectionColor(entry),
+                    backgroundColor: sectionLightColor,
+                    color: sectionColor,
                   }),
                 }}
                 onClick={() => {
@@ -255,6 +342,39 @@ export const Sidebar = memo(function Sidebar({ entries, selection, onSelect, onS
               </span>
             )}
           </button>
+        </div>
+      )}
+
+      {/* Context menu (right-click on section header) */}
+      {contextMenuPos && contextMenuType && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 rounded-md border bg-popover p-1 shadow-md"
+          style={{ left: contextMenuPos.x, top: contextMenuPos.y, minWidth: 180 }}
+        >
+          <button
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-default hover:bg-accent hover:text-accent-foreground transition-colors border-none bg-transparent text-left"
+            onClick={() => openCustomizePopover(contextMenuType)}
+          >
+            Customize icon & color…
+          </button>
+        </div>
+      )}
+
+      {/* Customize popover */}
+      {customizeTarget && (
+        <div
+          ref={popoverRef}
+          className="fixed z-50"
+          style={{ left: 20, top: 100 }}
+        >
+          <TypeCustomizePopover
+            currentIcon={typeEntryMap[customizeTarget]?.icon ?? null}
+            currentColor={typeEntryMap[customizeTarget]?.color ?? null}
+            onChangeIcon={handleCustomizeIcon}
+            onChangeColor={handleCustomizeColor}
+            onClose={() => setCustomizeTarget(null)}
+          />
         </div>
       )}
     </aside>

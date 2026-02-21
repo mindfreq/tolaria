@@ -9,6 +9,7 @@ import {
 } from '@phosphor-icons/react'
 import type { ComponentType, SVGAttributes } from 'react'
 import { getTypeColor, getTypeLightColor } from '../utils/typeColors'
+import { resolveIcon } from './TypeCustomizePopover'
 
 const TYPE_ICON_MAP: Record<string, ComponentType<SVGAttributes<SVGSVGElement>>> = {
   Project: Wrench,
@@ -21,7 +22,8 @@ const TYPE_ICON_MAP: Record<string, ComponentType<SVGAttributes<SVGSVGElement>>>
   Type: StackSimple,
 }
 
-function getTypeIcon(isA: string | null): ComponentType<SVGAttributes<SVGSVGElement>> {
+function getTypeIcon(isA: string | null, customIcon?: string | null): ComponentType<SVGAttributes<SVGSVGElement>> {
+  if (customIcon) return resolveIcon(customIcon)
   return (isA && TYPE_ICON_MAP[isA]) || FileText
 }
 
@@ -234,6 +236,15 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
     })
   }, [])
 
+  // Build type entry map for custom icon/color lookup
+  const typeEntryMap = useMemo(() => {
+    const map: Record<string, VaultEntry> = {}
+    for (const e of entries) {
+      if (e.isA === 'Type') map[e.title] = e
+    }
+    return map
+  }, [entries])
+
   // Find the type document for this section group (e.g., type/project.md for "Project")
   const typeDocument = useMemo(() => {
     if (!isSectionGroup) return null
@@ -278,9 +289,10 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
 
   const renderItem = useCallback((entry: VaultEntry, isPinned = false) => {
     const isSelected = selectedNote?.path === entry.path && !isPinned
-    const typeColor = getTypeColor(entry.isA ?? 'Note')
-    const typeLightColor = getTypeLightColor(entry.isA ?? 'Note')
-    const TypeIcon = getTypeIcon(entry.isA)
+    const te = typeEntryMap[entry.isA ?? '']
+    const typeColor = getTypeColor(entry.isA ?? 'Note', te?.color)
+    const typeLightColor = getTypeLightColor(entry.isA ?? 'Note', te?.color)
+    const TypeIcon = getTypeIcon(entry.isA, te?.icon)
     return (
       <div
         key={entry.path}
@@ -322,12 +334,13 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
         </div>
       </div>
     )
-  }, [selectedNote?.path, onSelectNote])
+  }, [selectedNote?.path, onSelectNote, typeEntryMap])
 
   const renderPinnedView = useCallback((entity: VaultEntry, groups: RelationshipGroup[]) => {
-    const entityTypeColor = getTypeColor(entity.isA ?? '')
-    const entityLightColor = getTypeLightColor(entity.isA ?? '')
-    const EntityIcon = getTypeIcon(entity.isA)
+    const ete = typeEntryMap[entity.isA ?? '']
+    const entityTypeColor = getTypeColor(entity.isA ?? '', ete?.color)
+    const entityLightColor = getTypeLightColor(entity.isA ?? '', ete?.color)
+    const EntityIcon = getTypeIcon(entity.isA, ete?.icon)
     return (
       <div className="h-full overflow-y-auto">
         {/* Prominent card */}
@@ -387,7 +400,7 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
         )}
       </div>
     )
-  }, [onSelectNote, query, collapsedGroups, toggleGroup, renderItem])
+  }, [onSelectNote, query, collapsedGroups, toggleGroup, renderItem, typeEntryMap])
 
   return (
     <div className="flex flex-col overflow-hidden border-r border-border bg-card text-foreground" style={{ height: '100%' }}>
@@ -436,9 +449,10 @@ function NoteListInner({ entries, selection, selectedNote, allContent, modifiedF
           <div className="h-full overflow-y-auto">
             {/* Type document pinned card (for sectionGroup view) */}
             {typeDocument && (() => {
-              const tdColor = getTypeColor(typeDocument.isA ?? 'Type')
-              const tdLightColor = getTypeLightColor(typeDocument.isA ?? 'Type')
-              const TDIcon = getTypeIcon(typeDocument.isA)
+              const tde = typeEntryMap[typeDocument.title] ?? typeDocument
+              const tdColor = getTypeColor(typeDocument.isA ?? 'Type', tde?.color)
+              const tdLightColor = getTypeLightColor(typeDocument.isA ?? 'Type', tde?.color)
+              const TDIcon = getTypeIcon(typeDocument.isA, tde?.icon)
               return (
                 <div
                   className="relative cursor-pointer border-b border-[var(--border)]"

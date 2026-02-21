@@ -28,12 +28,31 @@ const TYPE_LIGHT_COLOR_MAP: Record<string, string> = {
 const DEFAULT_COLOR = 'var(--accent-blue)'
 const DEFAULT_LIGHT_COLOR = 'var(--accent-blue-light)'
 
-/** Returns the CSS variable for the accent color of a given note type */
-export function getTypeColor(isA: string | null): string {
+/** Color key → CSS variable mapping for the design system accent palette */
+export const ACCENT_COLORS: { key: string; label: string; css: string; cssLight: string }[] = [
+  { key: 'red', label: 'Red', css: 'var(--accent-red)', cssLight: 'var(--accent-red-light)' },
+  { key: 'orange', label: 'Orange', css: 'var(--accent-orange)', cssLight: 'var(--accent-orange-light)' },
+  { key: 'yellow', label: 'Yellow', css: 'var(--accent-yellow)', cssLight: 'var(--accent-yellow-light)' },
+  { key: 'green', label: 'Green', css: 'var(--accent-green)', cssLight: 'var(--accent-green-light)' },
+  { key: 'blue', label: 'Blue', css: 'var(--accent-blue)', cssLight: 'var(--accent-blue-light)' },
+  { key: 'purple', label: 'Purple', css: 'var(--accent-purple)', cssLight: 'var(--accent-purple-light)' },
+]
+
+const COLOR_KEY_TO_CSS: Record<string, string> = Object.fromEntries(
+  ACCENT_COLORS.map((c) => [c.key, c.css]),
+)
+const COLOR_KEY_TO_CSS_LIGHT: Record<string, string> = Object.fromEntries(
+  ACCENT_COLORS.map((c) => [c.key, c.cssLight]),
+)
+
+/** Returns the CSS variable for the accent color of a given note type, with optional custom override */
+export function getTypeColor(isA: string | null, customColorKey?: string | null): string {
+  if (customColorKey && COLOR_KEY_TO_CSS[customColorKey]) return COLOR_KEY_TO_CSS[customColorKey]
   return (isA && TYPE_COLOR_MAP[isA]) ?? DEFAULT_COLOR
 }
 
 /** Returns the CSS variable for the light/background variant of a given note type's color */
-export function getTypeLightColor(isA: string | null): string {
+export function getTypeLightColor(isA: string | null, customColorKey?: string | null): string {
+  if (customColorKey && COLOR_KEY_TO_CSS_LIGHT[customColorKey]) return COLOR_KEY_TO_CSS_LIGHT[customColorKey]
   return (isA && TYPE_LIGHT_COLOR_MAP[isA]) ?? DEFAULT_LIGHT_COLOR
 }

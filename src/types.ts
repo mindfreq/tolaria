@@ -15,6 +15,10 @@ export interface VaultEntry {
   snippet: string
   /** Generic relationship fields: any frontmatter key whose value contains wikilinks. */
   relationships: Record<string, string[]>
+  /** Phosphor icon name (kebab-case) for Type entries, e.g. "cooking-pot" */
+  icon: string | null
+  /** Accent color key for Type entries: "red" | "purple" | "blue" | "green" | "yellow" | "orange" */
+  color: string | null
 }
 
 export interface GitCommit {
