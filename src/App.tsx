@@ -191,6 +191,7 @@ function App() {
             entries={vault.entries}
             onSwitchTab={notes.handleSwitchTab}
             onCloseTab={notes.handleCloseTab}
+            onReorderTabs={notes.handleReorderTabs}
             onNavigateWikilink={notes.handleNavigateWikilink}
             onLoadDiff={vault.loadDiff}
             isModified={vault.isFileModified}

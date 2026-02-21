@@ -29,6 +29,7 @@ interface EditorProps {
   entries: VaultEntry[]
   onSwitchTab: (path: string) => void
   onCloseTab: (path: string) => void
+  onReorderTabs?: (fromIndex: number, toIndex: number) => void
   onNavigateWikilink: (target: string) => void
   onLoadDiff?: (path: string) => Promise<string>
   isModified?: (path: string) => boolean
@@ -147,7 +148,7 @@ function SingleEditorView({ editor, entries, onNavigateWikilink }: { editor: Ret
 }
 
 export const Editor = memo(function Editor({
-  tabs, activeTabPath, entries, onSwitchTab, onCloseTab, onNavigateWikilink, onLoadDiff, isModified, onCreateNote,
+  tabs, activeTabPath, entries, onSwitchTab, onCloseTab, onReorderTabs, onNavigateWikilink, onLoadDiff, isModified, onCreateNote,
   inspectorCollapsed, onToggleInspector, inspectorWidth, onInspectorResize,
   inspectorEntry, inspectorContent, allContent, gitHistory,
   onUpdateFrontmatter, onDeleteProperty, onAddProperty,
@@ -347,6 +348,7 @@ export const Editor = memo(function Editor({
       onSwitchTab={onSwitchTab}
       onCloseTab={onCloseTab}
       onCreateNote={onCreateNote}
+      onReorderTabs={onReorderTabs}
     />
   )
 

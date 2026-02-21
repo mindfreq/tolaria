@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { isTauri, mockInvoke, addMockEntry, updateMockContent } from '../mock-tauri'
 import type { VaultEntry } from '../types'
@@ -87,6 +87,23 @@ function deleteMockFrontmatterProperty(path: string, key: string): string {
     i++
   }
   return `---\n${newLines.join('\n')}\n---${rest}`
+}
+
+const TAB_ORDER_KEY = 'laputa-tab-order'
+
+function saveTabOrder(tabs: Tab[]) {
+  try {
+    localStorage.setItem(TAB_ORDER_KEY, JSON.stringify(tabs.map(t => t.entry.path)))
+  } catch { /* localStorage may be unavailable */ }
+}
+
+function loadTabOrder(): string[] {
+  try {
+    const stored = localStorage.getItem(TAB_ORDER_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
 }
 
 async function loadNoteContent(path: string): Promise<string> {
@@ -313,6 +330,50 @@ export function useNoteActions(
     replaceTabWithEntry(entry, currentPath, setTabs, setActiveTabPath)
   }, [handleSelectNote])
 
+  const handleReorderTabs = useCallback((fromIndex: number, toIndex: number) => {
+    setTabs((prev) => {
+      const next = [...prev]
+      const [moved] = next.splice(fromIndex, 1)
+      next.splice(toIndex, 0, moved)
+      saveTabOrder(next)
+      return next
+    })
+  }, [])
+
+  // Persist tab order to localStorage whenever tabs change
+  useEffect(() => {
+    if (tabs.length > 0) {
+      saveTabOrder(tabs)
+    } else {
+      try { localStorage.removeItem(TAB_ORDER_KEY) } catch { /* noop */ }
+    }
+  }, [tabs])
+
+  // Restore tab order from localStorage on mount
+  useEffect(() => {
+    const savedOrder = loadTabOrder()
+    if (savedOrder.length === 0) return
+
+    setTabs((prev) => {
+      if (prev.length <= 1) return prev
+      const pathToTab = new Map(prev.map(t => [t.entry.path, t]))
+      const ordered: Tab[] = []
+      for (const path of savedOrder) {
+        const tab = pathToTab.get(path)
+        if (tab) {
+          ordered.push(tab)
+          pathToTab.delete(path)
+        }
+      }
+      // Append any tabs not in saved order (newly opened)
+      for (const tab of pathToTab.values()) {
+        ordered.push(tab)
+      }
+      return ordered
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const closeAllTabs = useCallback(() => {
     setTabs([])
     setActiveTabPath(null)
@@ -326,6 +387,7 @@ export function useNoteActions(
     handleSelectNote,
     handleCloseTab,
     handleSwitchTab,
+    handleReorderTabs,
     handleNavigateWikilink,
     handleCreateNote,
     handleCreateType,
