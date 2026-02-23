@@ -43,7 +43,7 @@ Laputa is a personal knowledge and life management desktop app. It reads a vault
 │  ┌──────────────▼────┐ ┌──▼───────────────────────────┐   │
 │  │   Rust Backend    │ │   External Services          │   │
 │  │  lib.rs → 10 cmds │ │  Anthropic API (Claude)      │   │
-│  │  vault.rs         │ │  MCP Server (ws://9710)      │   │
+│  │  vault/           │ │  MCP Server (ws://9710)      │   │
 │  │  frontmatter.rs   │ │                              │   │
 │  │  git.rs           │ └──────────────────────────────┘   │
 │  │  ai_chat.rs       │                                    │
@@ -223,6 +223,21 @@ User clicks Commit button → CommitDialog opens
     → Reload modified files
     → Toast: "Committed and pushed"
 ```
+
+## Vault Module Structure
+
+The vault backend (`src-tauri/src/vault/`) is split into focused submodules:
+
+| File | Purpose | CodeScene Health |
+|------|---------|-----------------|
+| `mod.rs` | Core types (`VaultEntry`, `Frontmatter`), `parse_md_file`, `scan_vault`, relationship extraction | 10.0 |
+| `parsing.rs` | Text processing: snippet extraction, markdown stripping, ISO date parsing, `extract_title` | 9.68 |
+| `cache.rs` | Git-based incremental vault caching (`scan_vault_cached`), git helpers | 9.68 |
+| `trash.rs` | `purge_trash` — deletes trashed notes older than 30 days | 9.38 |
+| `rename.rs` | `rename_note` — renames files and updates wikilinks across the vault | 9.68 |
+| `image.rs` | `save_image` — saves base64-encoded attachments with sanitized filenames | 10.0 |
+
+Public API (re-exported from `mod.rs`): `scan_vault_cached`, `save_image`, `rename_note`, `RenameResult`, `purge_trash`, `get_note_content`, `parse_md_file`, `VaultEntry`.
 
 ## Tauri IPC Commands
 
