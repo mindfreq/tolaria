@@ -1,3 +1,18 @@
-Task: vault-picker-local
-Summary: Added local vault creation options to vault picker
-Commits: 5
+Task: performance-note-list
+Summary: Implemented virtual list rendering for NoteList using react-virtuoso.
+
+Changes:
+- NoteList ListView now uses <Virtuoso> component instead of .map() for flat lists
+- Only visible items are rendered in the DOM (overscan: 200px)
+- EntityView (relationship groups) unchanged — groups are small (<100 items)
+- mock-tauri.ts generates 9000 bulk entries for testing
+- Test setup mocks react-virtuoso for JSDOM compatibility
+- 7 new tests covering large dataset rendering, search, sorting, filtering
+- Design file: design/performance-note-list.pen (4 frames)
+- Docs updated: ARCHITECTURE.md notes virtual rendering approach
+
+Product decisions:
+- Only virtualized ListView (flat lists), not EntityView — relationship groups
+  are inherently small and do not need virtualization
+- Used overscan={200} for smooth scrolling experience
+- PinnedCard and TrashWarningBanner rendered as Virtuoso Header component
