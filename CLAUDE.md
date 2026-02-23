@@ -249,15 +249,33 @@ bash ~/.openclaw/skills/laputa-qa/scripts/click.sh 400 300            # × 2.56 
 
 ## 1️⃣ Safeguard All AI-Generated or Modified Code (Mandatory)
 
-For any AI-touched code:
+### The CI is a safety net, not a discovery tool
 
-1. Run `pre_commit_code_health_safeguard`.
-2. **Run coverage checks** (both must pass — exit 0 — before committing):
+**Catch problems locally, before pushing.** You have all the tools: CodeScene MCP, eslint, tsc, coverage. Use them. Every CI failure that could have been caught locally wastes time on push/wait/fix/push cycles that are completely avoidable.
+
+**Rule**: never push code that you haven't already verified locally passes all quality gates. The CI should never be the first place you learn about a lint error, a coverage drop, or a CodeScene regression.
+
+### After every significant change (not just pre-commit):
+
+1. **Lint** — run immediately after changing TS/TSX files:
+   ```bash
+   pnpm lint           # catches eslint errors before they reach CI
+   npx tsc --noEmit    # catches type errors
+   ```
+
+2. **CodeScene health** — run after any non-trivial implementation:
+   ```bash
+   pre_commit_code_health_safeguard   # fails if health drops below threshold
+   ```
+   If it flags a file: use `code_health_review` to understand *why*, then fix structurally (see rules below). Don't push until it passes.
+
+3. **Coverage** — run before committing (both must exit 0):
    ```bash
    pnpm test:coverage
    cargo llvm-cov --manifest-path src-tauri/Cargo.toml --fail-under-lines 85
    ```
-3. Run `code_health_review` for detailed analysis if the safeguard reports a regression.
+
+4. Run `code_health_review` for detailed analysis if the safeguard reports a regression.
 3. If Code Health regresses or fails quality gates — **take it seriously, no shortcuts**:
    - A CI gate failure means the code has a real structural problem. Fix it properly.
    - **Never add superficial fixes to pass a gate** (e.g. a JSDoc comment to gain 0.02 points, a trivial test to hit coverage, splitting a function just to reduce line count without improving clarity). This creates "false quality" — the metric looks green but the problem is still there.
