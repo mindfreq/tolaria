@@ -49,7 +49,10 @@ fn get_api_key() -> Result<String, String> {
 
 fn build_request(req: &AiChatRequest) -> AnthropicRequest {
     AnthropicRequest {
-        model: req.model.clone().unwrap_or_else(|| "claude-3-5-haiku-20241022".to_string()),
+        model: req
+            .model
+            .clone()
+            .unwrap_or_else(|| "claude-3-5-haiku-20241022".to_string()),
         max_tokens: req.max_tokens.unwrap_or(4096),
         messages: req.messages.clone(),
         system: req.system.clone(),
@@ -137,8 +140,12 @@ mod tests {
     fn test_extract_response_text() {
         let resp = AnthropicResponse {
             content: vec![
-                ContentBlock { text: Some("Hello ".to_string()) },
-                ContentBlock { text: Some("world".to_string()) },
+                ContentBlock {
+                    text: Some("Hello ".to_string()),
+                },
+                ContentBlock {
+                    text: Some("world".to_string()),
+                },
                 ContentBlock { text: None },
             ],
             model: "test".to_string(),

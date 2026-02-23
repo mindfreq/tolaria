@@ -7,11 +7,11 @@ pub mod settings;
 pub mod vault;
 
 use ai_chat::{AiChatRequest, AiChatResponse};
+use frontmatter::FrontmatterValue;
 use git::{GitCommit, ModifiedFile};
 use github::GithubRepo;
 use settings::Settings;
-use vault::{VaultEntry, RenameResult};
-use frontmatter::FrontmatterValue;
+use vault::{RenameResult, VaultEntry};
 
 #[tauri::command]
 fn list_vault(path: String) -> Result<Vec<VaultEntry>, String> {
@@ -24,7 +24,11 @@ fn get_note_content(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn update_frontmatter(path: String, key: String, value: FrontmatterValue) -> Result<String, String> {
+fn update_frontmatter(
+    path: String,
+    key: String,
+    value: FrontmatterValue,
+) -> Result<String, String> {
     vault::update_frontmatter(&path, &key, value)
 }
 
@@ -49,7 +53,11 @@ fn get_file_diff(vault_path: String, path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn get_file_diff_at_commit(vault_path: String, path: String, commit_hash: String) -> Result<String, String> {
+fn get_file_diff_at_commit(
+    vault_path: String,
+    path: String,
+    commit_hash: String,
+) -> Result<String, String> {
     git::get_file_diff_at_commit(&vault_path, &path, &commit_hash)
 }
 
@@ -74,7 +82,11 @@ fn save_image(vault_path: String, filename: String, data: String) -> Result<Stri
 }
 
 #[tauri::command]
-fn rename_note(vault_path: String, old_path: String, new_title: String) -> Result<RenameResult, String> {
+fn rename_note(
+    vault_path: String,
+    old_path: String,
+    new_title: String,
+) -> Result<RenameResult, String> {
     vault::rename_note(&vault_path, &old_path, &new_title)
 }
 
@@ -99,7 +111,11 @@ async fn github_list_repos(token: String) -> Result<Vec<GithubRepo>, String> {
 }
 
 #[tauri::command]
-async fn github_create_repo(token: String, name: String, private: bool) -> Result<GithubRepo, String> {
+async fn github_create_repo(
+    token: String,
+    name: String,
+    private: bool,
+) -> Result<GithubRepo, String> {
     github::github_create_repo(&token, &name, private).await
 }
 
@@ -122,7 +138,8 @@ pub fn run() {
 
             #[cfg(desktop)]
             {
-                app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
                 menu::setup_menu(app)?;
             }

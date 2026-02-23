@@ -20,10 +20,9 @@ fn get_settings_at(path: &PathBuf) -> Result<Settings, String> {
     if !path.exists() {
         return Ok(Settings::default());
     }
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read settings: {}", e))?;
-    serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse settings: {}", e))
+    let content =
+        fs::read_to_string(path).map_err(|e| format!("Failed to read settings: {}", e))?;
+    serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))
 }
 
 fn save_settings_at(path: &PathBuf, settings: Settings) -> Result<(), String> {
@@ -34,16 +33,27 @@ fn save_settings_at(path: &PathBuf, settings: Settings) -> Result<(), String> {
 
     // Trim whitespace and convert empty strings to None
     let cleaned = Settings {
-        anthropic_key: settings.anthropic_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()),
-        openai_key: settings.openai_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()),
-        google_key: settings.google_key.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()),
-        github_token: settings.github_token.map(|k| k.trim().to_string()).filter(|k| !k.is_empty()),
+        anthropic_key: settings
+            .anthropic_key
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty()),
+        openai_key: settings
+            .openai_key
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty()),
+        google_key: settings
+            .google_key
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty()),
+        github_token: settings
+            .github_token
+            .map(|k| k.trim().to_string())
+            .filter(|k| !k.is_empty()),
     };
 
     let json = serde_json::to_string_pretty(&cleaned)
         .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-    fs::write(path, json)
-        .map_err(|e| format!("Failed to write settings: {}", e))
+    fs::write(path, json).map_err(|e| format!("Failed to write settings: {}", e))
 }
 
 pub fn get_settings() -> Result<Settings, String> {
@@ -71,7 +81,15 @@ mod tests {
         let s = Settings::default();
         assert_eq!(
             format!("{:?}", s),
-            format!("{:?}", Settings { anthropic_key: None, openai_key: None, google_key: None, github_token: None })
+            format!(
+                "{:?}",
+                Settings {
+                    anthropic_key: None,
+                    openai_key: None,
+                    google_key: None,
+                    github_token: None
+                }
+            )
         );
     }
 
@@ -140,9 +158,19 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("nested").join("dir").join("settings.json");
 
-        save_settings_at(&path, Settings { anthropic_key: Some("key".to_string()), ..Default::default() }).unwrap();
+        save_settings_at(
+            &path,
+            Settings {
+                anthropic_key: Some("key".to_string()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert!(path.exists());
-        assert_eq!(get_settings_at(&path).unwrap().anthropic_key.as_deref(), Some("key"));
+        assert_eq!(
+            get_settings_at(&path).unwrap().anthropic_key.as_deref(),
+            Some("key")
+        );
     }
 
     #[test]

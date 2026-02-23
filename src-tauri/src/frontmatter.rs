@@ -54,14 +54,20 @@ impl FrontmatterValue {
     pub fn to_yaml_value(&self) -> String {
         match self {
             FrontmatterValue::String(s) => {
-                if needs_yaml_quoting(s) { quote_yaml_string(s) } else { s.clone() }
+                if needs_yaml_quoting(s) {
+                    quote_yaml_string(s)
+                } else {
+                    s.clone()
+                }
             }
             FrontmatterValue::Number(n) => format_yaml_number(*n),
             FrontmatterValue::Bool(b) => if *b { "true" } else { "false" }.to_string(),
             FrontmatterValue::List(items) if items.is_empty() => "[]".to_string(),
-            FrontmatterValue::List(items) => {
-                items.iter().map(|item| format_list_item(item)).collect::<Vec<_>>().join("\n")
-            }
+            FrontmatterValue::List(items) => items
+                .iter()
+                .map(|item| format_list_item(item))
+                .collect::<Vec<_>>()
+                .join("\n"),
             FrontmatterValue::Null => "null".to_string(),
         }
     }
@@ -69,7 +75,8 @@ impl FrontmatterValue {
 
 /// Check whether a YAML key needs quoting (contains spaces, special chars, etc.).
 fn needs_key_quoting(key: &str) -> bool {
-    key.chars().any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
+    key.chars()
+        .any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
 }
 
 /// Format a key for YAML output (quote if necessary)
@@ -84,21 +91,21 @@ pub fn format_yaml_key(key: &str) -> String {
 /// Check if a line defines a specific key (handles quoted and unquoted keys)
 fn line_is_key(line: &str, key: &str) -> bool {
     let trimmed = line.trim_start();
-    
+
     if trimmed.starts_with(key) && trimmed[key.len()..].starts_with(':') {
         return true;
     }
-    
+
     let dq = format!("\"{}\":", key);
     if trimmed.starts_with(&dq) {
         return true;
     }
-    
+
     let sq = format!("'{}\':", key);
     if trimmed.starts_with(&sq) {
         return true;
     }
-    
+
     false
 }
 
@@ -121,7 +128,8 @@ fn is_list_continuation(line: &str) -> bool {
 /// Split content into frontmatter body and the rest after the closing `---`.
 /// Returns `(fm_content, rest)` where `fm_content` is between the opening and closing `---`.
 fn split_frontmatter(content: &str) -> Result<(&str, &str), String> {
-    let fm_end = content[4..].find("\n---")
+    let fm_end = content[4..]
+        .find("\n---")
         .map(|i| i + 4)
         .ok_or_else(|| "Malformed frontmatter: no closing ---".to_string())?;
     Ok((&content[4..fm_end], &content[fm_end + 4..]))
@@ -168,7 +176,11 @@ fn apply_field_update(lines: &[&str], key: &str, value: Option<&FrontmatterValue
 }
 
 /// Internal function to update frontmatter content
-pub fn update_frontmatter_content(content: &str, key: &str, value: Option<FrontmatterValue>) -> Result<String, String> {
+pub fn update_frontmatter_content(
+    content: &str,
+    key: &str,
+    value: Option<FrontmatterValue>,
+) -> Result<String, String> {
     if !content.starts_with("---\n") {
         return match value {
             Some(v) => Ok(prepend_new_frontmatter(content, key, &v)),
@@ -192,15 +204,14 @@ where
     if !file_path.exists() {
         return Err(format!("File does not exist: {}", path));
     }
-    
-    let content = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))?;
-    
+
+    let content =
+        fs::read_to_string(file_path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
+
     let updated = transform(&content)?;
-    
-    fs::write(file_path, &updated)
-        .map_err(|e| format!("Failed to write {}: {}", path, e))?;
-    
+
+    fs::write(file_path, &updated).map_err(|e| format!("Failed to write {}: {}", path, e))?;
+
     Ok(updated)
 }
 
@@ -211,7 +222,12 @@ mod tests {
     #[test]
     fn test_update_frontmatter_string() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Active".to_string()))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "Status",
+            Some(FrontmatterValue::String("Active".to_string())),
+        )
+        .unwrap();
         assert!(updated.contains("Status: Active"));
         assert!(!updated.contains("Status: Draft"));
     }
@@ -219,7 +235,12 @@ mod tests {
     #[test]
     fn test_update_frontmatter_add_new_key() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Owner", Some(FrontmatterValue::String("Luca".to_string()))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "Owner",
+            Some(FrontmatterValue::String("Luca".to_string())),
+        )
+        .unwrap();
         assert!(updated.contains("Owner: Luca"));
         assert!(updated.contains("Status: Draft"));
     }
@@ -227,7 +248,12 @@ mod tests {
     #[test]
     fn test_update_frontmatter_quoted_key() {
         let content = "---\n\"Is A\": Note\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Is A", Some(FrontmatterValue::String("Project".to_string()))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "Is A",
+            Some(FrontmatterValue::String("Project".to_string())),
+        )
+        .unwrap();
         assert!(updated.contains("\"Is A\": Project"));
         assert!(!updated.contains("Note"));
     }
@@ -235,7 +261,15 @@ mod tests {
     #[test]
     fn test_update_frontmatter_list() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "aliases", Some(FrontmatterValue::List(vec!["Alias1".to_string(), "Alias2".to_string()]))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "aliases",
+            Some(FrontmatterValue::List(vec![
+                "Alias1".to_string(),
+                "Alias2".to_string(),
+            ])),
+        )
+        .unwrap();
         assert!(updated.contains("aliases:"));
         assert!(updated.contains("  - \"Alias1\""));
         assert!(updated.contains("  - \"Alias2\""));
@@ -244,7 +278,12 @@ mod tests {
     #[test]
     fn test_update_frontmatter_replace_list() {
         let content = "---\naliases:\n  - Old1\n  - Old2\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "aliases", Some(FrontmatterValue::List(vec!["New1".to_string()]))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "aliases",
+            Some(FrontmatterValue::List(vec!["New1".to_string()])),
+        )
+        .unwrap();
         assert!(updated.contains("  - \"New1\""));
         assert!(!updated.contains("Old1"));
         assert!(!updated.contains("Old2"));
@@ -271,7 +310,12 @@ mod tests {
     #[test]
     fn test_update_frontmatter_no_existing() {
         let content = "# Test\n\nSome content here.";
-        let updated = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Draft".to_string()))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "Status",
+            Some(FrontmatterValue::String("Draft".to_string())),
+        )
+        .unwrap();
         assert!(updated.starts_with("---\n"));
         assert!(updated.contains("Status: Draft"));
         assert!(updated.contains("# Test"));
@@ -280,7 +324,9 @@ mod tests {
     #[test]
     fn test_update_frontmatter_bool() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Reviewed", Some(FrontmatterValue::Bool(true))).unwrap();
+        let updated =
+            update_frontmatter_content(content, "Reviewed", Some(FrontmatterValue::Bool(true)))
+                .unwrap();
         assert!(updated.contains("Reviewed: true"));
     }
 
@@ -324,19 +370,34 @@ mod tests {
 
     #[test]
     fn test_to_yaml_value_string_needs_quoting_bool_like() {
-        assert_eq!(FrontmatterValue::String("true".to_string()).to_yaml_value(), "\"true\"");
-        assert_eq!(FrontmatterValue::String("false".to_string()).to_yaml_value(), "\"false\"");
+        assert_eq!(
+            FrontmatterValue::String("true".to_string()).to_yaml_value(),
+            "\"true\""
+        );
+        assert_eq!(
+            FrontmatterValue::String("false".to_string()).to_yaml_value(),
+            "\"false\""
+        );
     }
 
     #[test]
     fn test_to_yaml_value_string_needs_quoting_null_like() {
-        assert_eq!(FrontmatterValue::String("null".to_string()).to_yaml_value(), "\"null\"");
+        assert_eq!(
+            FrontmatterValue::String("null".to_string()).to_yaml_value(),
+            "\"null\""
+        );
     }
 
     #[test]
     fn test_to_yaml_value_string_needs_quoting_number_like() {
-        assert_eq!(FrontmatterValue::String("42".to_string()).to_yaml_value(), "\"42\"");
-        assert_eq!(FrontmatterValue::String("3.14".to_string()).to_yaml_value(), "\"3.14\"");
+        assert_eq!(
+            FrontmatterValue::String("42".to_string()).to_yaml_value(),
+            "\"42\""
+        );
+        assert_eq!(
+            FrontmatterValue::String("3.14".to_string()).to_yaml_value(),
+            "\"3.14\""
+        );
     }
 
     #[test]
@@ -379,35 +440,46 @@ mod tests {
     #[test]
     fn test_update_frontmatter_number() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Priority", Some(FrontmatterValue::Number(5.0))).unwrap();
+        let updated =
+            update_frontmatter_content(content, "Priority", Some(FrontmatterValue::Number(5.0)))
+                .unwrap();
         assert!(updated.contains("Priority: 5"));
     }
 
     #[test]
     fn test_update_frontmatter_number_float() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Score", Some(FrontmatterValue::Number(9.5))).unwrap();
+        let updated =
+            update_frontmatter_content(content, "Score", Some(FrontmatterValue::Number(9.5)))
+                .unwrap();
         assert!(updated.contains("Score: 9.5"));
     }
 
     #[test]
     fn test_update_frontmatter_null() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "ClearMe", Some(FrontmatterValue::Null)).unwrap();
+        let updated =
+            update_frontmatter_content(content, "ClearMe", Some(FrontmatterValue::Null)).unwrap();
         assert!(updated.contains("ClearMe: null"));
     }
 
     #[test]
     fn test_update_frontmatter_empty_list() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "tags", Some(FrontmatterValue::List(vec![]))).unwrap();
+        let updated =
+            update_frontmatter_content(content, "tags", Some(FrontmatterValue::List(vec![])))
+                .unwrap();
         assert!(updated.contains("tags: []"));
     }
 
     #[test]
     fn test_update_frontmatter_malformed_no_closing_fence() {
         let content = "---\nStatus: Draft\nNo closing fence here";
-        let result = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Active".to_string())));
+        let result = update_frontmatter_content(
+            content,
+            "Status",
+            Some(FrontmatterValue::String("Active".to_string())),
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Malformed frontmatter"));
     }
@@ -472,7 +544,12 @@ mod tests {
     #[test]
     fn test_roundtrip_update_string() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "Status", Some(FrontmatterValue::String("Active".to_string()))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "Status",
+            Some(FrontmatterValue::String("Active".to_string())),
+        )
+        .unwrap();
         // Parse back with gray_matter
         let matter = gray_matter::Matter::<gray_matter::engine::YAML>::new();
         let parsed = matter.parse(&updated);
@@ -487,7 +564,15 @@ mod tests {
     #[test]
     fn test_roundtrip_update_list() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let updated = update_frontmatter_content(content, "aliases", Some(FrontmatterValue::List(vec!["A".to_string(), "B".to_string()]))).unwrap();
+        let updated = update_frontmatter_content(
+            content,
+            "aliases",
+            Some(FrontmatterValue::List(vec![
+                "A".to_string(),
+                "B".to_string(),
+            ])),
+        )
+        .unwrap();
         let matter = gray_matter::Matter::<gray_matter::engine::YAML>::new();
         let parsed = matter.parse(&updated);
         let data = parsed.data.unwrap();
@@ -508,7 +593,12 @@ mod tests {
     #[test]
     fn test_roundtrip_add_then_delete() {
         let content = "---\nStatus: Draft\n---\n# Test\n";
-        let with_owner = update_frontmatter_content(content, "Owner", Some(FrontmatterValue::String("Luca".to_string()))).unwrap();
+        let with_owner = update_frontmatter_content(
+            content,
+            "Owner",
+            Some(FrontmatterValue::String("Luca".to_string())),
+        )
+        .unwrap();
         assert!(with_owner.contains("Owner: Luca"));
         let without_owner = update_frontmatter_content(&with_owner, "Owner", None).unwrap();
         assert!(!without_owner.contains("Owner"));

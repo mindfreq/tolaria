@@ -288,3 +288,67 @@ Data flows unidirectionally: `App` passes data and callbacks as props to child c
 | Cmd+S | Show "Saved" toast |
 | Cmd+W | Close active tab |
 | `[[` in editor | Open wikilink suggestion menu |
+
+## Auto-Release & In-App Updates
+
+### Release Pipeline
+
+Every push to `main` triggers `.github/workflows/release.yml`:
+
+```
+push to main
+  → version job: compute 0.YYYYMMDD.RUN_NUMBER
+  → build job (matrix: aarch64 + x86_64):
+      → pnpm install, stamp version, pnpm build, tauri build --target <arch>
+      → upload .app, .tar.gz + .sig, .dmg as artifacts
+  → release job:
+      → download both arch artifacts
+      → lipo aarch64 + x86_64 → universal binary
+      → create universal .dmg + signed updater tarball
+      → generate latest.json (per-arch + universal platform entries)
+      → publish GitHub Release with all assets + auto-generated notes
+  → pages job:
+      → fetch all releases via gh api
+      → build static HTML release history page
+      → deploy to gh-pages via peaceiris/actions-gh-pages
+```
+
+### Versioning
+
+Format: `0.YYYYMMDD.GITHUB_RUN_NUMBER` (e.g. `0.20260223.42`). The `0.` prefix keeps it SemVer-compatible while making it clear these are date-based auto-releases. The version is stamped into both `tauri.conf.json` and `Cargo.toml` dynamically in the workflow.
+
+### Universal Binary
+
+macOS builds produce both `aarch64-apple-darwin` and `x86_64-apple-darwin` in parallel. The release job merges them with `lipo` — copying the arm64 `.app` as the base and replacing only the main executable with a universal fat binary. The per-arch updater tarballs are also uploaded so the Tauri updater downloads only the relevant architecture (smaller download).
+
+### Updater Endpoint
+
+The Tauri updater plugin is configured to fetch:
+```
+https://github.com/refactoringhq/laputa-app/releases/latest/download/latest.json
+```
+
+This JSON manifest contains `version`, `pub_date`, `notes`, and per-platform entries (`darwin-aarch64`, `darwin-x86_64`) with `url` and `signature` fields. The updater compares the manifest version against the running app version, downloads the matching platform artifact, verifies the signature, and installs it.
+
+### In-App Update UI
+
+```
+App startup (3s delay)
+  → useUpdater.check()
+    → idle (no update) → no UI shown
+    → available → UpdateBanner: "Laputa X.Y.Z is available" + Release Notes + Update Now + X
+      → user clicks Update Now → downloading → progress bar
+        → download complete → ready → "Restart to apply" + Restart Now button
+          → user clicks Restart → relaunch()
+    → network error / 404 → fail silently, no UI
+```
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `useUpdater` | `src/hooks/useUpdater.ts` | State machine: idle → available → downloading → ready → error |
+| `UpdateBanner` | `src/components/UpdateBanner.tsx` | Top-of-app notification bar |
+| `restartApp` | `src/hooks/useUpdater.ts` | Calls `@tauri-apps/plugin-process` relaunch |
+
+### GitHub Pages
+
+Release history site at `https://refactoringhq.github.io/laputa-app/`. Auto-updated by the workflow after each release. The page loads `releases.json` (deployed alongside) and renders each release with date, notes, and `.dmg` download links. Linked from the in-app "Release Notes" button.

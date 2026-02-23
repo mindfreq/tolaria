@@ -1,4 +1,7 @@
-use tauri::{menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder}, App, Emitter};
+use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder},
+    App, Emitter,
+};
 
 const VIEW_ITEMS: [(&str, &str, &str); 3] = [
     ("view-editor-only", "Editor Only", "CmdOrCtrl+1"),
@@ -17,9 +20,7 @@ pub fn setup_menu(app: &App) -> Result<(), Box<dyn std::error::Error>> {
     }
     let view_submenu = view_menu.build()?;
 
-    let menu = MenuBuilder::new(app)
-        .item(&view_submenu)
-        .build()?;
+    let menu = MenuBuilder::new(app).item(&view_submenu).build()?;
 
     app.set_menu(menu)?;
 

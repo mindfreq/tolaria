@@ -125,7 +125,12 @@ pub async fn github_create_repo(
 pub fn clone_repo(url: &str, token: &str, local_path: &str) -> Result<String, String> {
     let dest = Path::new(local_path);
 
-    if dest.exists() && dest.read_dir().map(|mut d| d.next().is_some()).unwrap_or(false) {
+    if dest.exists()
+        && dest
+            .read_dir()
+            .map(|mut d| d.next().is_some())
+            .unwrap_or(false)
+    {
         return Err(format!(
             "Destination '{}' already exists and is not empty",
             local_path
@@ -163,7 +168,10 @@ fn inject_token_into_url(url: &str, token: &str) -> Result<String, String> {
         // Handle URLs that already have a host
         Ok(format!("https://oauth2:{}@{}", token, rest))
     } else {
-        Err(format!("Unsupported URL format: {}. Use an HTTPS URL.", url))
+        Err(format!(
+            "Unsupported URL format: {}. Use an HTTPS URL.",
+            url
+        ))
     }
 }
 
@@ -245,7 +253,11 @@ mod tests {
         let path = dir.path();
         std::fs::write(path.join("existing.txt"), "data").unwrap();
 
-        let result = clone_repo("https://github.com/test/repo.git", "token", path.to_str().unwrap());
+        let result = clone_repo(
+            "https://github.com/test/repo.git",
+            "token",
+            path.to_str().unwrap(),
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not empty"));
     }
@@ -255,7 +267,11 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let dest = dir.path().join("new-clone");
 
-        let result = clone_repo("git@github.com:user/repo.git", "token", dest.to_str().unwrap());
+        let result = clone_repo(
+            "git@github.com:user/repo.git",
+            "token",
+            dest.to_str().unwrap(),
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Unsupported URL format"));
     }
@@ -268,7 +284,11 @@ mod tests {
         std::fs::create_dir(&dest).unwrap();
 
         // This will fail at the git clone step (invalid URL) but should pass the directory check
-        let result = clone_repo("https://github.com/nonexistent/repo.git", "token", dest.to_str().unwrap());
+        let result = clone_repo(
+            "https://github.com/nonexistent/repo.git",
+            "token",
+            dest.to_str().unwrap(),
+        );
         assert!(result.is_err());
         // Should fail at git clone, not at directory check
         assert!(result.unwrap_err().contains("git clone failed"));
@@ -280,9 +300,21 @@ mod tests {
         let path = dir.path();
 
         // Initialize a git repo
-        StdCommand::new("git").args(["init"]).current_dir(path).output().unwrap();
-        StdCommand::new("git").args(["remote", "add", "origin", "https://github.com/user/repo.git"])
-            .current_dir(path).output().unwrap();
+        StdCommand::new("git")
+            .args(["init"])
+            .current_dir(path)
+            .output()
+            .unwrap();
+        StdCommand::new("git")
+            .args([
+                "remote",
+                "add",
+                "origin",
+                "https://github.com/user/repo.git",
+            ])
+            .current_dir(path)
+            .output()
+            .unwrap();
 
         let result = configure_remote_auth(
             path.to_str().unwrap(),

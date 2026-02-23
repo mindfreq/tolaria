@@ -181,8 +181,8 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
         let status_out = String::from_utf8_lossy(&status.stdout);
         if status_out.starts_with("??") {
             // Untracked file: show entire content as added
-            let content = std::fs::read_to_string(file)
-                .map_err(|e| format!("Failed to read file: {}", e))?;
+            let content =
+                std::fs::read_to_string(file).map_err(|e| format!("Failed to read file: {}", e))?;
             let lines: Vec<String> = content.lines().map(|l| format!("+{}", l)).collect();
             return Ok(format!(
                 "diff --git a/{0} b/{0}\nnew file\n--- /dev/null\n+++ b/{0}\n@@ -0,0 +1,{1} @@\n{2}",
@@ -197,7 +197,11 @@ pub fn get_file_diff(vault_path: &str, file_path: &str) -> Result<String, String
 }
 
 /// Get git diff for a specific file at a given commit (compared to its parent).
-pub fn get_file_diff_at_commit(vault_path: &str, file_path: &str, commit_hash: &str) -> Result<String, String> {
+pub fn get_file_diff_at_commit(
+    vault_path: &str,
+    file_path: &str,
+    commit_hash: &str,
+) -> Result<String, String> {
     let vault = Path::new(vault_path);
     let file = Path::new(file_path);
 
@@ -211,7 +215,13 @@ pub fn get_file_diff_at_commit(vault_path: &str, file_path: &str, commit_hash: &
 
     // Show diff between commit^ and commit for this file
     let output = Command::new("git")
-        .args(["diff", &format!("{}^", commit_hash), commit_hash, "--", relative_str])
+        .args([
+            "diff",
+            &format!("{}^", commit_hash),
+            commit_hash,
+            "--",
+            relative_str,
+        ])
         .current_dir(vault)
         .output()
         .map_err(|e| format!("Failed to run git diff: {}", e))?;
@@ -356,11 +366,7 @@ mod tests {
             .output()
             .unwrap();
 
-        let history = get_file_history(
-            vault.to_str().unwrap(),
-            file.to_str().unwrap(),
-        )
-        .unwrap();
+        let history = get_file_history(vault.to_str().unwrap(), file.to_str().unwrap()).unwrap();
 
         assert_eq!(history.len(), 2);
         assert_eq!(history[0].message, "Update test");
@@ -377,11 +383,7 @@ mod tests {
         let file = vault.join("new.md");
         fs::write(&file, "# New\n").unwrap();
 
-        let history = get_file_history(
-            vault.to_str().unwrap(),
-            file.to_str().unwrap(),
-        )
-        .unwrap();
+        let history = get_file_history(vault.to_str().unwrap(), file.to_str().unwrap()).unwrap();
 
         assert!(history.is_empty());
     }
@@ -436,11 +438,7 @@ mod tests {
 
         fs::write(&file, "# Test\n\nModified content.").unwrap();
 
-        let diff = get_file_diff(
-            vault.to_str().unwrap(),
-            file.to_str().unwrap(),
-        )
-        .unwrap();
+        let diff = get_file_diff(vault.to_str().unwrap(), file.to_str().unwrap()).unwrap();
 
         assert!(!diff.is_empty());
         assert!(diff.contains("-Original content."));
@@ -485,12 +483,8 @@ mod tests {
             .unwrap();
         let hash = String::from_utf8_lossy(&log.stdout).trim().to_string();
 
-        let diff = get_file_diff_at_commit(
-            vault.to_str().unwrap(),
-            file.to_str().unwrap(),
-            &hash,
-        )
-        .unwrap();
+        let diff = get_file_diff_at_commit(vault.to_str().unwrap(), file.to_str().unwrap(), &hash)
+            .unwrap();
 
         assert!(!diff.is_empty());
         assert!(diff.contains("-Original content."));
@@ -522,12 +516,8 @@ mod tests {
             .unwrap();
         let hash = String::from_utf8_lossy(&log.stdout).trim().to_string();
 
-        let diff = get_file_diff_at_commit(
-            vault.to_str().unwrap(),
-            file.to_str().unwrap(),
-            &hash,
-        )
-        .unwrap();
+        let diff = get_file_diff_at_commit(vault.to_str().unwrap(), file.to_str().unwrap(), &hash)
+            .unwrap();
 
         assert!(!diff.is_empty());
         assert!(diff.contains("+# Initial"));

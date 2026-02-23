@@ -8,7 +8,7 @@ use std::path::Path;
 use std::time::UNIX_EPOCH;
 use walkdir::WalkDir;
 
-use crate::frontmatter::{with_frontmatter, update_frontmatter_content};
+use crate::frontmatter::{update_frontmatter_content, with_frontmatter};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct VaultEntry {
@@ -178,7 +178,9 @@ fn without_h1_line(s: &str) -> Option<&str> {
 fn collect_until(chars: &mut impl Iterator<Item = char>, delimiter: char) -> String {
     let mut buf = String::new();
     for c in chars.by_ref() {
-        if c == delimiter { break; }
+        if c == delimiter {
+            break;
+        }
         buf.push(c);
     }
     buf
@@ -187,7 +189,9 @@ fn collect_until(chars: &mut impl Iterator<Item = char>, delimiter: char) -> Str
 /// Skip all chars until a delimiter (consuming the delimiter).
 fn skip_until(chars: &mut impl Iterator<Item = char>, delimiter: char) {
     for c in chars.by_ref() {
-        if c == delimiter { break; }
+        if c == delimiter {
+            break;
+        }
     }
 }
 
@@ -219,19 +223,26 @@ fn strip_markdown_chars(s: &str) -> String {
 /// Parse frontmatter from raw YAML data extracted by gray_matter.
 fn parse_frontmatter(data: &HashMap<String, serde_json::Value>) -> Frontmatter {
     // Convert HashMap to serde_json::Value for deserialization
-    let value = serde_json::Value::Object(
-        data.iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
-            .collect(),
-    );
+    let value =
+        serde_json::Value::Object(data.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
     serde_json::from_value(value).unwrap_or_default()
 }
 
 /// Known non-relationship frontmatter keys to skip (case-insensitive comparison).
 /// Only skip keys that can never contain wikilinks.
 const SKIP_KEYS: &[&str] = &[
-    "is a", "aliases", "status", "cadence", "archived", "trashed", "trashed at",
-    "created at", "created time", "icon", "color", "order",
+    "is a",
+    "aliases",
+    "status",
+    "cadence",
+    "archived",
+    "trashed",
+    "trashed at",
+    "created at",
+    "created time",
+    "icon",
+    "color",
+    "order",
 ];
 
 /// Check if a string contains a wikilink pattern `[[...]]`.
@@ -243,7 +254,9 @@ fn contains_wikilink(s: &str) -> bool {
 /// Returns a HashMap where each key is the original frontmatter field name
 /// and the value is a Vec of wikilink strings found in that field.
 /// Handles both single string values and arrays of strings.
-fn extract_relationships(data: &HashMap<String, serde_json::Value>) -> HashMap<String, Vec<String>> {
+fn extract_relationships(
+    data: &HashMap<String, serde_json::Value>,
+) -> HashMap<String, Vec<String>> {
     let mut relationships = HashMap::new();
 
     for (key, value) in data {
@@ -296,7 +309,8 @@ fn infer_type_from_folder(folder: &str) -> String {
         "essay" => "Essay",
         "evergreen" => "Evergreen",
         _ => return capitalize_first(folder),
-    }.to_string()
+    }
+    .to_string()
 }
 
 /// Resolve `is_a` from frontmatter, falling back to parent folder inference.
@@ -312,28 +326,35 @@ fn resolve_is_a(fm_is_a: Option<StringOrList>, path: &Path) -> Option<String> {
 
 /// Parse created_at from frontmatter (prefer "Created at" over "Created time").
 fn parse_created_at(fm: &Frontmatter) -> Option<u64> {
-    fm.created_at.as_ref().and_then(|s| parse_iso_date(s))
+    fm.created_at
+        .as_ref()
+        .and_then(|s| parse_iso_date(s))
         .or_else(|| fm.created_time.as_ref().and_then(|s| parse_iso_date(s)))
 }
 
 /// Extract frontmatter and relationships from parsed gray_matter data.
-fn extract_fm_and_rels(data: Option<gray_matter::Pod>) -> (Frontmatter, HashMap<String, Vec<String>>) {
+fn extract_fm_and_rels(
+    data: Option<gray_matter::Pod>,
+) -> (Frontmatter, HashMap<String, Vec<String>>) {
     let hash = match data {
         Some(gray_matter::Pod::Hash(map)) => map,
         _ => return (Frontmatter::default(), HashMap::new()),
     };
-    let json_map: HashMap<String, serde_json::Value> = hash
-        .into_iter()
-        .map(|(k, v)| (k, pod_to_json(v)))
-        .collect();
-    (parse_frontmatter(&json_map), extract_relationships(&json_map))
+    let json_map: HashMap<String, serde_json::Value> =
+        hash.into_iter().map(|(k, v)| (k, pod_to_json(v))).collect();
+    (
+        parse_frontmatter(&json_map),
+        extract_relationships(&json_map),
+    )
 }
 
 /// Read file metadata (modified_at timestamp, file size).
 fn read_file_metadata(path: &Path) -> Result<(Option<u64>, u64), String> {
-    let metadata = fs::metadata(path)
-        .map_err(|e| format!("Failed to stat {}: {}", path.display(), e))?;
-    let modified_at = metadata.modified().ok()
+    let metadata =
+        fs::metadata(path).map_err(|e| format!("Failed to stat {}: {}", path.display(), e))?;
+    let modified_at = metadata
+        .modified()
+        .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs());
     Ok((modified_at, metadata.len()))
@@ -343,7 +364,8 @@ fn read_file_metadata(path: &Path) -> Result<(Option<u64>, u64), String> {
 pub fn parse_md_file(path: &Path) -> Result<VaultEntry, String> {
     let content = fs::read_to_string(path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
-    let filename = path.file_name()
+    let filename = path
+        .file_name()
         .map(|f| f.to_string_lossy().to_string())
         .unwrap_or_default();
 
@@ -373,17 +395,32 @@ pub fn parse_md_file(path: &Path) -> Result<VaultEntry, String> {
 
     Ok(VaultEntry {
         path: path.to_string_lossy().to_string(),
-        filename, title, is_a, snippet, relationships,
-        aliases: frontmatter.aliases.map(|a| a.into_vec()).unwrap_or_default(),
-        belongs_to: frontmatter.belongs_to.map(|b| b.into_vec()).unwrap_or_default(),
-        related_to: frontmatter.related_to.map(|r| r.into_vec()).unwrap_or_default(),
+        filename,
+        title,
+        is_a,
+        snippet,
+        relationships,
+        aliases: frontmatter
+            .aliases
+            .map(|a| a.into_vec())
+            .unwrap_or_default(),
+        belongs_to: frontmatter
+            .belongs_to
+            .map(|b| b.into_vec())
+            .unwrap_or_default(),
+        related_to: frontmatter
+            .related_to
+            .map(|r| r.into_vec())
+            .unwrap_or_default(),
         status: frontmatter.status,
         owner: frontmatter.owner,
         cadence: frontmatter.cadence,
         archived: frontmatter.archived.unwrap_or(false),
         trashed: frontmatter.trashed.unwrap_or(false),
         trashed_at: frontmatter.trashed_at.as_deref().and_then(parse_iso_date),
-        modified_at, created_at, file_size,
+        modified_at,
+        created_at,
+        file_size,
         icon: frontmatter.icon,
         color: frontmatter.color,
         order: frontmatter.order,
@@ -435,10 +472,8 @@ fn pod_to_json(pod: gray_matter::Pod) -> serde_json::Value {
             serde_json::Value::Array(arr.into_iter().map(pod_to_json).collect())
         }
         gray_matter::Pod::Hash(map) => {
-            let obj: serde_json::Map<String, serde_json::Value> = map
-                .into_iter()
-                .map(|(k, v)| (k, pod_to_json(v)))
-                .collect();
+            let obj: serde_json::Map<String, serde_json::Value> =
+                map.into_iter().map(|(k, v)| (k, pod_to_json(v))).collect();
             serde_json::Value::Object(obj)
         }
         gray_matter::Pod::Null => serde_json::Value::Null,
@@ -469,12 +504,7 @@ pub fn purge_trash(vault_path: &str) -> Result<Vec<String>, String> {
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if !path.is_file()
-            || path
-                .extension()
-                .map(|ext| ext != "md")
-                .unwrap_or(true)
-        {
+        if !path.is_file() || path.extension().map(|ext| ext != "md").unwrap_or(true) {
             continue;
         }
 
@@ -528,8 +558,7 @@ pub fn get_note_content(path: &str) -> Result<String, String> {
     if !file_path.is_file() {
         return Err(format!("Path is not a file: {}", path));
     }
-    fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read {}: {}", path, e))
+    fs::read_to_string(file_path).map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
 /// Scan a directory recursively for .md files and return VaultEntry for each.
@@ -601,7 +630,9 @@ fn run_git(vault: &Path, args: &[&str]) -> Option<String> {
 
 /// Parse a git status porcelain line into (status_code, file_path).
 fn parse_porcelain_line(line: &str) -> Option<(&str, String)> {
-    if line.len() < 3 { return None; }
+    if line.len() < 3 {
+        return None;
+    }
     Some((&line[..2], line[3..].trim().to_string()))
 }
 
@@ -612,7 +643,8 @@ fn is_new_file_status(status: &str) -> bool {
 
 /// Extract .md file paths from git diff --name-only output.
 fn collect_md_paths_from_diff(stdout: &str) -> Vec<String> {
-    stdout.lines()
+    stdout
+        .lines()
         .filter(|line| !line.is_empty() && line.ends_with(".md"))
         .map(|line| line.to_string())
         .collect()
@@ -620,7 +652,8 @@ fn collect_md_paths_from_diff(stdout: &str) -> Vec<String> {
 
 /// Extract .md file paths from git status --porcelain output.
 fn collect_md_paths_from_porcelain(stdout: &str) -> Vec<String> {
-    stdout.lines()
+    stdout
+        .lines()
         .filter_map(parse_porcelain_line)
         .filter(|(_, path)| path.ends_with(".md"))
         .map(|(_, path)| path)
@@ -651,7 +684,8 @@ fn git_uncommitted_new_files(vault: &Path) -> Vec<String> {
         Some(s) => s,
         None => return Vec::new(),
     };
-    stdout.lines()
+    stdout
+        .lines()
         .filter_map(parse_porcelain_line)
         .filter(|(status, path)| path.ends_with(".md") && is_new_file_status(status))
         .map(|(_, path)| path)
@@ -673,7 +707,8 @@ fn write_cache(vault: &Path, cache: &VaultCache) {
 fn to_relative_path(abs_path: &str, vault: &Path) -> String {
     let vault_str = vault.to_string_lossy();
     let with_slash = format!("{}/", vault_str);
-    abs_path.strip_prefix(&with_slash)
+    abs_path
+        .strip_prefix(&with_slash)
         .or_else(|| abs_path.strip_prefix(vault_str.as_ref()))
         .unwrap_or(abs_path)
         .to_string()
@@ -681,10 +716,15 @@ fn to_relative_path(abs_path: &str, vault: &Path) -> String {
 
 /// Parse .md files from a list of relative paths, skipping any that don't exist.
 fn parse_files_at(vault: &Path, rel_paths: &[String]) -> Vec<VaultEntry> {
-    rel_paths.iter()
+    rel_paths
+        .iter()
         .filter_map(|rel| {
             let abs = vault.join(rel);
-            if abs.is_file() { parse_md_file(&abs).ok() } else { None }
+            if abs.is_file() {
+                parse_md_file(&abs).ok()
+            } else {
+                None
+            }
         })
         .collect()
 }
@@ -692,7 +732,13 @@ fn parse_files_at(vault: &Path, rel_paths: &[String]) -> Vec<VaultEntry> {
 /// Sort entries by modified_at descending and write the cache.
 fn finalize_and_cache(vault: &Path, mut entries: Vec<VaultEntry>, hash: String) -> Vec<VaultEntry> {
     entries.sort_by(|a, b| b.modified_at.cmp(&a.modified_at));
-    write_cache(vault, &VaultCache { commit_hash: hash, entries: entries.clone() });
+    write_cache(
+        vault,
+        &VaultCache {
+            commit_hash: hash,
+            entries: entries.clone(),
+        },
+    );
     entries
 }
 
@@ -700,7 +746,8 @@ fn finalize_and_cache(vault: &Path, mut entries: Vec<VaultEntry>, hash: String) 
 fn update_same_commit(vault: &Path, cache: VaultCache) -> Vec<VaultEntry> {
     let new_files = git_uncommitted_new_files(vault);
     let mut entries = cache.entries;
-    let existing: std::collections::HashSet<String> = entries.iter()
+    let existing: std::collections::HashSet<String> = entries
+        .iter()
         .map(|e| to_relative_path(&e.path, vault))
         .collect();
 
@@ -716,11 +763,17 @@ fn update_same_commit(vault: &Path, cache: VaultCache) -> Vec<VaultEntry> {
 }
 
 /// Handle different-commit cache: incremental update via git diff.
-fn update_different_commit(vault: &Path, cache: VaultCache, current_hash: String) -> Vec<VaultEntry> {
+fn update_different_commit(
+    vault: &Path,
+    cache: VaultCache,
+    current_hash: String,
+) -> Vec<VaultEntry> {
     let changed_files = git_changed_files(vault, &cache.commit_hash, &current_hash);
     let changed_set: std::collections::HashSet<String> = changed_files.iter().cloned().collect();
 
-    let mut entries: Vec<VaultEntry> = cache.entries.into_iter()
+    let mut entries: Vec<VaultEntry> = cache
+        .entries
+        .into_iter()
         .filter(|e| !changed_set.contains(&to_relative_path(&e.path, vault)))
         .collect();
     entries.extend(parse_files_at(vault, &changed_files));
@@ -733,7 +786,10 @@ fn update_different_commit(vault: &Path, cache: VaultCache, current_hash: String
 pub fn scan_vault_cached(vault_path: &str) -> Result<Vec<VaultEntry>, String> {
     let vault = Path::new(vault_path);
     if !vault.exists() || !vault.is_dir() {
-        return Err(format!("Vault path does not exist or is not a directory: {}", vault_path));
+        return Err(format!(
+            "Vault path does not exist or is not a directory: {}",
+            vault_path
+        ));
     }
 
     let current_hash = match git_head_hash(vault) {
@@ -758,13 +814,21 @@ pub fn scan_vault_cached(vault_path: &str) -> Result<Vec<VaultEntry>, String> {
 pub use crate::frontmatter::FrontmatterValue;
 
 /// Update a single frontmatter property in a markdown file
-pub fn update_frontmatter(path: &str, key: &str, value: FrontmatterValue) -> Result<String, String> {
-    with_frontmatter(path, |content| update_frontmatter_content(content, key, Some(value.clone())))
+pub fn update_frontmatter(
+    path: &str,
+    key: &str,
+    value: FrontmatterValue,
+) -> Result<String, String> {
+    with_frontmatter(path, |content| {
+        update_frontmatter_content(content, key, Some(value.clone()))
+    })
 }
 
 /// Delete a frontmatter property from a markdown file
 pub fn delete_frontmatter_property(path: &str, key: &str) -> Result<String, String> {
-    with_frontmatter(path, |content| update_frontmatter_content(content, key, None))
+    with_frontmatter(path, |content| {
+        update_frontmatter_content(content, key, None)
+    })
 }
 
 /// Check if a character is safe for use in filenames (alphanumeric, dot, dash, underscore).
@@ -802,8 +866,7 @@ pub fn save_image(vault_path: &str, filename: &str, data: &str) -> Result<String
         .decode(data)
         .map_err(|e| format!("Invalid base64 data: {}", e))?;
 
-    fs::write(&target_path, bytes)
-        .map_err(|e| format!("Failed to write image: {}", e))?;
+    fs::write(&target_path, bytes).map_err(|e| format!("Failed to write image: {}", e))?;
 
     Ok(target_path.to_string_lossy().to_string())
 }
@@ -837,9 +900,16 @@ fn update_h1_title(content: &str, new_title: &str) -> String {
         return content.to_string();
     }
 
-    let result: Vec<String> = content.lines().map(|l| {
-        if l.trim().starts_with("# ") { format!("# {}", new_title) } else { l.to_string() }
-    }).collect();
+    let result: Vec<String> = content
+        .lines()
+        .map(|l| {
+            if l.trim().starts_with("# ") {
+                format!("# {}", new_title)
+            } else {
+                l.to_string()
+            }
+        })
+        .collect();
 
     let joined = result.join("\n");
     if content.ends_with('\n') && !joined.ends_with('\n') {
@@ -861,9 +931,7 @@ fn build_wikilink_pattern(old_title: &str, old_path_stem: &str) -> Option<Regex>
 
 /// Check if a path is a vault markdown file eligible for wikilink replacement.
 fn is_replaceable_md_file(path: &Path, exclude: &Path) -> bool {
-    path.is_file()
-        && path != exclude
-        && path.extension().is_some_and(|ext| ext == "md")
+    path.is_file() && path != exclude && path.extension().is_some_and(|ext| ext == "md")
 }
 
 /// Replace wikilink references in a single file's content. Returns updated content if changed.
@@ -871,13 +939,15 @@ fn replace_wikilinks_in_content(content: &str, re: &Regex, new_title: &str) -> O
     if !re.is_match(content) {
         return None;
     }
-    let replaced = re.replace_all(content, |caps: &regex::Captures| {
-        match caps.get(1) {
-            Some(pipe) => format!("[[{}{}]]", new_title, pipe.as_str()),
-            None => format!("[[{}]]", new_title),
-        }
+    let replaced = re.replace_all(content, |caps: &regex::Captures| match caps.get(1) {
+        Some(pipe) => format!("[[{}{}]]", new_title, pipe.as_str()),
+        None => format!("[[{}]]", new_title),
     });
-    if replaced != content { Some(replaced.into_owned()) } else { None }
+    if replaced != content {
+        Some(replaced.into_owned())
+    } else {
+        None
+    }
 }
 
 /// Parameters for a vault-wide wikilink replacement.
@@ -908,16 +978,19 @@ fn update_wikilinks_in_vault(params: &WikilinkReplacement) -> usize {
     };
 
     let files = collect_md_files(params.vault_path, params.exclude_path);
-    files.iter().filter(|path| {
-        let content = match fs::read_to_string(path) {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-        match replace_wikilinks_in_content(&content, &re, params.new_title) {
-            Some(new_content) => fs::write(path, &new_content).is_ok(),
-            None => false,
-        }
-    }).count()
+    files
+        .iter()
+        .filter(|path| {
+            let content = match fs::read_to_string(path) {
+                Ok(c) => c,
+                Err(_) => return false,
+            };
+            match replace_wikilinks_in_content(&content, &re, params.new_title) {
+                Some(new_content) => fs::write(path, &new_content).is_ok(),
+                None => false,
+            }
+        })
+        .count()
 }
 
 /// Check if frontmatter contains a `title:` key.
@@ -925,11 +998,15 @@ fn frontmatter_has_title_key(content: &str) -> bool {
     if !content.starts_with("---\n") {
         return false;
     }
-    content[4..].split("\n---").next()
-        .map(|fm| fm.lines().any(|l| {
-            let t = l.trim_start();
-            t.starts_with("title:") || t.starts_with("\"title\":")
-        }))
+    content[4..]
+        .split("\n---")
+        .next()
+        .map(|fm| {
+            fm.lines().any(|l| {
+                let t = l.trim_start();
+                t.starts_with("title:") || t.starts_with("\"title\":")
+            })
+        })
         .unwrap_or(false)
 }
 
@@ -955,7 +1032,11 @@ fn to_path_stem<'a>(abs_path: &'a str, vault_prefix: &str) -> &'a str {
 }
 
 /// Rename a note: update its title, rename the file, and update wiki links across the vault.
-pub fn rename_note(vault_path: &str, old_path: &str, new_title: &str) -> Result<RenameResult, String> {
+pub fn rename_note(
+    vault_path: &str,
+    old_path: &str,
+    new_title: &str,
+) -> Result<RenameResult, String> {
     let vault = Path::new(vault_path);
     let old_file = Path::new(old_path);
 
@@ -967,21 +1048,28 @@ pub fn rename_note(vault_path: &str, old_path: &str, new_title: &str) -> Result<
         return Err("New title cannot be empty".to_string());
     }
 
-    let content = fs::read_to_string(old_file)
-        .map_err(|e| format!("Failed to read {}: {}", old_path, e))?;
-    let old_filename = old_file.file_name()
-        .map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+    let content =
+        fs::read_to_string(old_file).map_err(|e| format!("Failed to read {}: {}", old_path, e))?;
+    let old_filename = old_file
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
     let old_title = extract_title(&content, &old_filename);
 
     if old_title == new_title {
-        return Ok(RenameResult { new_path: old_path.to_string(), updated_files: 0 });
+        return Ok(RenameResult {
+            new_path: old_path.to_string(),
+            updated_files: 0,
+        });
     }
 
     // Update content (H1 + frontmatter title)
     let updated_content = update_note_title_in_content(&content, new_title);
 
     // Compute new path and write file
-    let parent_dir = old_file.parent().ok_or("Cannot determine parent directory")?;
+    let parent_dir = old_file
+        .parent()
+        .ok_or("Cannot determine parent directory")?;
     let new_file = parent_dir.join(format!("{}.md", title_to_slug(new_title)));
     let new_path_str = new_file.to_string_lossy().to_string();
 
@@ -996,10 +1084,17 @@ pub fn rename_note(vault_path: &str, old_path: &str, new_title: &str) -> Result<
     let vault_prefix = format!("{}/", vault.to_string_lossy());
     let old_path_stem = to_path_stem(old_path, &vault_prefix);
     let updated_files = update_wikilinks_in_vault(&WikilinkReplacement {
-        vault_path: vault, old_title: &old_title, new_title, old_path_stem, exclude_path: &new_file,
+        vault_path: vault,
+        old_title: &old_title,
+        new_title,
+        old_path_stem,
+        exclude_path: &new_file,
     });
 
-    Ok(RenameResult { new_path: new_path_str, updated_files })
+    Ok(RenameResult {
+        new_path: new_path_str,
+        updated_files,
+    })
 }
 
 #[cfg(test)]
@@ -1027,7 +1122,10 @@ mod tests {
     #[test]
     fn test_extract_title_fallback_to_filename() {
         let content = "Just some content without a heading.";
-        assert_eq!(extract_title(content, "fallback-title.md"), "fallback-title");
+        assert_eq!(
+            extract_title(content, "fallback-title.md"),
+            "fallback-title"
+        );
     }
 
     #[test]
@@ -1073,7 +1171,11 @@ mod tests {
     #[test]
     fn test_parse_empty_frontmatter() {
         let dir = TempDir::new().unwrap();
-        let entry = parse_test_entry(&dir, "empty-fm.md", "---\n---\n# Just a Title\n\nNo frontmatter fields.");
+        let entry = parse_test_entry(
+            &dir,
+            "empty-fm.md",
+            "---\n---\n# Just a Title\n\nNo frontmatter fields.",
+        );
         assert_eq!(entry.title, "Just a Title");
         assert!(entry.aliases.is_empty());
 
@@ -1106,7 +1208,11 @@ mod tests {
     fn test_scan_vault_recursive() {
         let dir = TempDir::new().unwrap();
         create_test_file(dir.path(), "root.md", "# Root Note\n");
-        create_test_file(dir.path(), "sub/nested.md", "---\nIs A: Task\n---\n# Nested\n");
+        create_test_file(
+            dir.path(),
+            "sub/nested.md",
+            "---\nIs A: Task\n---\n# Nested\n",
+        );
         create_test_file(dir.path(), "not-markdown.txt", "This should be ignored");
 
         let entries = scan_vault(dir.path().to_str().unwrap()).unwrap();
@@ -1219,13 +1325,33 @@ mod tests {
         let vault = dir.path();
 
         // Init git repo
-        std::process::Command::new("git").args(["init"]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(vault).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
 
         create_test_file(vault, "note.md", "# Note\n\nFirst version.");
-        std::process::Command::new("git").args(["add", "."]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "init"]).current_dir(vault).output().unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
 
         // First call: full scan, writes cache
         let entries = scan_vault_cached(vault.to_str().unwrap()).unwrap();
@@ -1259,7 +1385,10 @@ Status: Active
         assert_eq!(entry.relationships.len(), 3); // Has, Topics, Type
         assert_eq!(
             entry.relationships.get("Has").unwrap(),
-            &vec!["[[essay/foo|Foo Essay]]".to_string(), "[[essay/bar|Bar Essay]]".to_string()]
+            &vec![
+                "[[essay/foo|Foo Essay]]".to_string(),
+                "[[essay/bar|Bar Essay]]".to_string()
+            ]
         );
         assert_eq!(
             entry.relationships.get("Topics").unwrap(),
@@ -1343,7 +1472,10 @@ Custom Field: just a plain string
     fn test_parse_relationships_owner_and_notes() {
         let rels = parse_big_project_rels();
         assert_eq!(rels.get("Notes").unwrap().len(), 3);
-        assert_eq!(rels.get("Owner").unwrap(), &vec!["[[person/alice]]".to_string()]);
+        assert_eq!(
+            rels.get("Owner").unwrap(),
+            &vec!["[[person/alice]]".to_string()]
+        );
     }
 
     #[test]
@@ -1385,7 +1517,10 @@ Context: "[[area/research]]"
         // Array → Vec with multiple elements
         assert_eq!(
             entry.relationships.get("Reviewers").unwrap(),
-            &vec!["[[person/carol]]".to_string(), "[[person/dave]]".to_string()]
+            &vec![
+                "[[person/carol]]".to_string(),
+                "[[person/dave]]".to_string()
+            ]
         );
         // Another single string
         assert_eq!(
@@ -1422,7 +1557,10 @@ Context: "[[area/research]]"
     #[test]
     fn test_skip_keys_real_relation_included() {
         let (rels, len) = parse_skip_keys_rels();
-        assert_eq!(rels.get("Real Relation").unwrap(), &vec!["[[note/important]]".to_string()]);
+        assert_eq!(
+            rels.get("Real Relation").unwrap(),
+            &vec!["[[note/important]]".to_string()]
+        );
         // "Real Relation" + auto-generated "Type" (from is_a: "[[type/project]]")
         assert_eq!(len, 2);
         assert_eq!(
@@ -1451,7 +1589,10 @@ References:
         // Only the wikilink entries should be captured
         assert_eq!(
             entry.relationships.get("References").unwrap(),
-            &vec!["[[source/paper-a]]".to_string(), "[[source/paper-b]]".to_string()]
+            &vec![
+                "[[source/paper-a]]".to_string(),
+                "[[source/paper-b]]".to_string()
+            ]
         );
     }
 
@@ -1508,7 +1649,10 @@ References:
 
     #[test]
     fn test_strip_markdown_chars_emphasis() {
-        assert_eq!(strip_markdown_chars("**bold** and *italic*"), "bold and italic");
+        assert_eq!(
+            strip_markdown_chars("**bold** and *italic*"),
+            "bold and italic"
+        );
     }
 
     #[test]
@@ -1523,7 +1667,10 @@ References:
 
     #[test]
     fn test_strip_markdown_chars_link_with_url() {
-        assert_eq!(strip_markdown_chars("[click here](https://example.com)"), "click here");
+        assert_eq!(
+            strip_markdown_chars("[click here](https://example.com)"),
+            "click here"
+        );
     }
 
     #[test]
@@ -1591,7 +1738,13 @@ References:
         for (folder, expected_type) in known_folders {
             create_test_file(dir.path(), &format!("{}/test.md", folder), "# Test\n");
             let entry = parse_md_file(&dir.path().join(folder).join("test.md")).unwrap();
-            assert_eq!(entry.is_a, Some(expected_type.to_string()), "folder '{}' should infer type '{}'", folder, expected_type);
+            assert_eq!(
+                entry.is_a,
+                Some(expected_type.to_string()),
+                "folder '{}' should infer type '{}'",
+                folder,
+                expected_type
+            );
         }
     }
 
@@ -1606,7 +1759,11 @@ References:
     #[test]
     fn test_infer_type_frontmatter_overrides_folder() {
         let dir = TempDir::new().unwrap();
-        create_test_file(dir.path(), "person/test.md", "---\nIs A: Custom\n---\n# Test\n");
+        create_test_file(
+            dir.path(),
+            "person/test.md",
+            "---\nIs A: Custom\n---\n# Test\n",
+        );
         let entry = parse_md_file(&dir.path().join("person/test.md")).unwrap();
         assert_eq!(entry.is_a, Some("Custom".to_string()));
     }
@@ -1715,13 +1872,33 @@ References:
         let vault = dir.path();
 
         // Init git repo
-        std::process::Command::new("git").args(["init"]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.email", "test@test.com"]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["config", "user.name", "Test"]).current_dir(vault).output().unwrap();
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
 
         create_test_file(vault, "first.md", "# First\n\nFirst note.");
-        std::process::Command::new("git").args(["add", "."]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "first"]).current_dir(vault).output().unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "first"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
 
         // Build cache
         let entries = scan_vault_cached(vault.to_str().unwrap()).unwrap();
@@ -1729,8 +1906,16 @@ References:
 
         // Add a second file and commit
         create_test_file(vault, "second.md", "# Second\n\nSecond note.");
-        std::process::Command::new("git").args(["add", "."]).current_dir(vault).output().unwrap();
-        std::process::Command::new("git").args(["commit", "-m", "second"]).current_dir(vault).output().unwrap();
+        std::process::Command::new("git")
+            .args(["add", "."])
+            .current_dir(vault)
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "second"])
+            .current_dir(vault)
+            .output()
+            .unwrap();
 
         // Incremental update: cache has old commit, new commit adds second.md
         let entries2 = scan_vault_cached(vault.to_str().unwrap()).unwrap();
@@ -1886,7 +2071,10 @@ References:
             "---\nTrashed at: \"2025-01-01\"\n---\n# Old Trash\n",
         );
         // File trashed recently — should be kept
-        let recent = chrono::Utc::now().date_naive().format("%Y-%m-%d").to_string();
+        let recent = chrono::Utc::now()
+            .date_naive()
+            .format("%Y-%m-%d")
+            .to_string();
         create_test_file(
             dir.path(),
             "recent-trash.md",
@@ -1939,14 +2127,16 @@ References:
     #[test]
     fn test_purge_trash_exactly_30_days_not_deleted() {
         let dir = TempDir::new().unwrap();
-        let thirty_days_ago = (chrono::Utc::now().date_naive()
-            - chrono::Duration::days(30))
+        let thirty_days_ago = (chrono::Utc::now().date_naive() - chrono::Duration::days(30))
             .format("%Y-%m-%d")
             .to_string();
         create_test_file(
             dir.path(),
             "borderline.md",
-            &format!("---\nTrashed at: \"{}\"\n---\n# Borderline\n", thirty_days_ago),
+            &format!(
+                "---\nTrashed at: \"{}\"\n---\n# Borderline\n",
+                thirty_days_ago
+            ),
         );
 
         let deleted = purge_trash(dir.path().to_str().unwrap()).unwrap();
@@ -1957,14 +2147,16 @@ References:
     #[test]
     fn test_purge_trash_31_days_deleted() {
         let dir = TempDir::new().unwrap();
-        let thirty_one_days_ago = (chrono::Utc::now().date_naive()
-            - chrono::Duration::days(31))
+        let thirty_one_days_ago = (chrono::Utc::now().date_naive() - chrono::Duration::days(31))
             .format("%Y-%m-%d")
             .to_string();
         create_test_file(
             dir.path(),
             "expired.md",
-            &format!("---\nTrashed at: \"{}\"\n---\n# Expired\n", thirty_one_days_ago),
+            &format!(
+                "---\nTrashed at: \"{}\"\n---\n# Expired\n",
+                thirty_one_days_ago
+            ),
         );
 
         let deleted = purge_trash(dir.path().to_str().unwrap()).unwrap();
@@ -2008,14 +2200,19 @@ References:
     fn test_rename_note_basic() {
         let dir = TempDir::new().unwrap();
         let vault = dir.path();
-        create_test_file(vault, "note/weekly-review.md", "---\nIs A: Note\n---\n# Weekly Review\n\nContent here.\n");
+        create_test_file(
+            vault,
+            "note/weekly-review.md",
+            "---\nIs A: Note\n---\n# Weekly Review\n\nContent here.\n",
+        );
 
         let old_path = vault.join("note/weekly-review.md");
         let result = rename_note(
             vault.to_str().unwrap(),
             old_path.to_str().unwrap(),
             "Sprint Retrospective",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(result.new_path.ends_with("sprint-retrospective.md"));
         assert!(!old_path.exists());
@@ -2029,16 +2226,29 @@ References:
     fn test_rename_note_updates_wikilinks() {
         let dir = TempDir::new().unwrap();
         let vault = dir.path();
-        create_test_file(vault, "note/weekly-review.md", "---\nIs A: Note\n---\n# Weekly Review\n\nContent.\n");
-        create_test_file(vault, "note/other.md", "---\nIs A: Note\n---\n# Other\n\nSee [[Weekly Review]] for details.\n");
-        create_test_file(vault, "project/my-project.md", "---\nIs A: Project\nRelated to:\n  - \"[[Weekly Review]]\"\n---\n# My Project\n");
+        create_test_file(
+            vault,
+            "note/weekly-review.md",
+            "---\nIs A: Note\n---\n# Weekly Review\n\nContent.\n",
+        );
+        create_test_file(
+            vault,
+            "note/other.md",
+            "---\nIs A: Note\n---\n# Other\n\nSee [[Weekly Review]] for details.\n",
+        );
+        create_test_file(
+            vault,
+            "project/my-project.md",
+            "---\nIs A: Project\nRelated to:\n  - \"[[Weekly Review]]\"\n---\n# My Project\n",
+        );
 
         let old_path = vault.join("note/weekly-review.md");
         let result = rename_note(
             vault.to_str().unwrap(),
             old_path.to_str().unwrap(),
             "Sprint Retrospective",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(result.updated_files, 2);
 
@@ -2061,7 +2271,8 @@ References:
             vault.to_str().unwrap(),
             old_path.to_str().unwrap(),
             "My Note",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(result.new_path, old_path.to_str().unwrap());
         assert_eq!(result.updated_files, 0);
@@ -2074,11 +2285,7 @@ References:
         create_test_file(vault, "note/test.md", "# Test\n");
 
         let old_path = vault.join("note/test.md");
-        let result = rename_note(
-            vault.to_str().unwrap(),
-            old_path.to_str().unwrap(),
-            "  ",
-        );
+        let result = rename_note(vault.to_str().unwrap(), old_path.to_str().unwrap(), "  ");
         assert!(result.is_err());
     }
 
@@ -2087,14 +2294,19 @@ References:
         let dir = TempDir::new().unwrap();
         let vault = dir.path();
         create_test_file(vault, "note/weekly-review.md", "# Weekly Review\n");
-        create_test_file(vault, "note/ref.md", "# Ref\n\nSee [[Weekly Review|my review]] for info.\n");
+        create_test_file(
+            vault,
+            "note/ref.md",
+            "# Ref\n\nSee [[Weekly Review|my review]] for info.\n",
+        );
 
         let old_path = vault.join("note/weekly-review.md");
         let result = rename_note(
             vault.to_str().unwrap(),
             old_path.to_str().unwrap(),
             "Sprint Retro",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(result.updated_files, 1);
         let ref_content = fs::read_to_string(vault.join("note/ref.md")).unwrap();
@@ -2105,14 +2317,19 @@ References:
     fn test_rename_note_updates_title_frontmatter() {
         let dir = TempDir::new().unwrap();
         let vault = dir.path();
-        create_test_file(vault, "note/old.md", "---\ntitle: Old Name\nIs A: Note\n---\n# Old Name\n");
+        create_test_file(
+            vault,
+            "note/old.md",
+            "---\ntitle: Old Name\nIs A: Note\n---\n# Old Name\n",
+        );
 
         let old_path = vault.join("note/old.md");
         let result = rename_note(
             vault.to_str().unwrap(),
             old_path.to_str().unwrap(),
             "New Name",
-        ).unwrap();
+        )
+        .unwrap();
 
         let content = fs::read_to_string(&result.new_path).unwrap();
         assert!(content.contains("title: New Name"));
