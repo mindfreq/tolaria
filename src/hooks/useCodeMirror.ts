@@ -105,7 +105,11 @@ function buildBaseTheme() {
       backgroundColor: RAW_EDITOR_COLORS.activeLineBackground,
     },
     '&.cm-focused': { outline: 'none' },
-    '.cm-line': { padding: '0' },
+    '.cm-line': { 
+      padding: '0',
+      unicodeBidi: 'plaintext',
+      textAlign: 'start',
+    },
   })
 }
 
